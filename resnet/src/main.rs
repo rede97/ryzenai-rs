@@ -96,7 +96,7 @@ fn main() -> ort::Result<()> {
         .with_intra_threads(4)?
         .commit_from_file("models/resnet_quantized.onnx")?;
 
-    let num_test = 100;
+    let num_test = 1000;
     // let num_test = test_data.len_of(Axis(0));
     let mut fail = 0;
 
