@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "ai-common",
+    "ai-common", "mobilenet",
     "resnet",
 ]
 resolver = "2"
