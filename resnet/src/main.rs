@@ -1,19 +1,13 @@
 mod image;
 
-use std::error::Error;
-use std::iter::zip;
-use std::os;
-
-use log::{info, trace};
+use cifar_ten::Cifar10;
+use log::{error, info, warn};
+use ndarray::prelude::*;
 use ort::execution_providers::{
     CPUExecutionProvider, DirectMLExecutionProvider, VitisAIExecutionProvider,
 };
 use ort::inputs;
 use ort::session::{builder::GraphOptimizationLevel, Session};
-// use ort::execution_providers::VitisAIExecutionProvider;
-use cifar_ten::Cifar10;
-use ndarray::prelude::*;
-use ort::tensor::ArrayExtensions;
 
 use image::*;
 
@@ -55,7 +49,7 @@ fn main() -> ort::Result<()> {
     )
     .expect("Failed to build CIFAR-10 data");
     let test_data = test_data.mapv(|x| x / 255.0);
-    println!("Load CIFAR-10 data done");
+    info!("Load CIFAR-10 data done");
 
     ort::init().with_name("resnet_cifar").commit()?;
 
@@ -72,7 +66,7 @@ fn main() -> ort::Result<()> {
                 .error_on_failure(),
         );
     } else {
-        info!("Config file not found, VitisAIExecutionProvider will not be used");
+        warn!("Config file not found, VitisAIExecutionProvider will not be used");
     }
     providers.append(&mut vec![
         DirectMLExecutionProvider::default().build(),
@@ -111,17 +105,16 @@ fn main() -> ort::Result<()> {
                 .0;
             let predicted_label_name = LABEL_NAME[predix_idx];
             if expect_idx != predix_idx {
-                println!("error: {}, value: {:?}", test_idx, output);
-                println!(
-                    "expect:  {}:{}, predict: {}:{}",
-                    expect_label_name, expect_idx, predicted_label_name, predix_idx
+                error!(
+                    "test idx: {}, expect: {}:{}, predict: {}:{}",
+                    test_idx, expect_label_name, expect_idx, predicted_label_name, predix_idx
                 );
                 fail += 1;
             }
         }
     }
 
-    println!(
+    info!(
         "Fail: {}/{} (LOSS: {}%)",
         fail,
         num_test,

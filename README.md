@@ -6,8 +6,14 @@ This project demonstrates how to use Rust with the ONNX Runtime (ORT) library to
 
 本项目展示了如何使用Rust语言结合ONNX Runtime (ORT)库来调用RyzenAI模型。
 
-### Resnet Demo
 
+### Prepare Runtime Environment
+```sh
+cd runtime
+init.bat
+```
+
+### ResNet Demo
 This demo shows how to use the ONNX Runtime to load a ResNet model and run inference on the CIFAR-10 dataset.
 ```sh
 cd resnet

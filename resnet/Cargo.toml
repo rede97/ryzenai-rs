@@ -4,13 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cifar-ten = { git = "https://github.com/rede97/cifar-ten.git" }
-# cifar-ten = { git = "https://github.com/rede97/cifar-ten.git", features = ["download"] }
-
+cifar-ten = { git = "https://github.com/rede97/cifar-ten.git", features = ["download"] }
 image = "0.25.5"
 ndarray = "0.16.1"
 ort = { git = "https://github.com/rede97/ort.git", branch = "ryzenai", features = ["load-dynamic"] }
-
 ai-common = { path = "../ai-common" }
 simplelog = "0.12.2"
 log = "0.4.26"
