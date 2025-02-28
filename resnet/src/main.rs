@@ -11,6 +11,17 @@ use ort::session::{builder::GraphOptimizationLevel, Session};
 
 use image::*;
 
+use clap::Parser;
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// disable NPU
+    #[arg(long)]
+    no_npu: bool,
+}
+
 const LABEL_NAME: [&'static str; 10] = [
     "airplane",
     "automobile",
@@ -36,6 +47,8 @@ fn main() -> ort::Result<()> {
     )])
     .unwrap();
 
+    let args = Args::parse();
+
     let runtime_path = ai_common::runtime::init_runtime(None);
     info!("ONNX Runtime path: {:?}", runtime_path);
 
@@ -57,14 +70,18 @@ fn main() -> ort::Result<()> {
     if let Ok(config_file) = ai_common::runtime::find_config_file(runtime_path, "vaip_config.json")
     {
         info!("Config file: {:?}", config_file);
-        providers.push(
-            VitisAIExecutionProvider::default()
-                .with_config_file(config_file.to_str().unwrap())
-                .with_cache_dir("./cache/")
-                .with_cache_key("modelcachekey")
-                .build()
-                .error_on_failure(),
-        );
+        if args.no_npu {
+            warn!("NPU is disabled");
+        } else {
+            providers.push(
+                VitisAIExecutionProvider::default()
+                    .with_config_file(config_file.to_str().unwrap())
+                    .with_cache_dir("./cache/")
+                    .with_cache_key("modelcachekey")
+                    .build()
+                    .error_on_failure(),
+            );
+        }
     } else {
         warn!("Config file not found, VitisAIExecutionProvider will not be used");
     }
@@ -79,8 +96,8 @@ fn main() -> ort::Result<()> {
         .with_intra_threads(4)?
         .commit_from_file("models/resnet_quantized.onnx")?;
 
-    // let num_test = 1000;
-    let num_test = test_data.len_of(Axis(0));
+    let num_test = 100;
+    // let num_test = test_data.len_of(Axis(0));
     let mut fail = 0;
 
     for test_idx in 0..num_test {
