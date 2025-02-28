@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "ai-common",
+    "resnet",
+]
+resolver = "2"

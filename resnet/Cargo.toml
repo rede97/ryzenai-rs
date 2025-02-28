@@ -9,8 +9,8 @@ cifar-ten = { git = "https://github.com/rede97/cifar-ten.git" }
 
 image = "0.25.5"
 ndarray = "0.16.1"
-ort = { path = "../ort", features = ["load-dynamic"] }
-windows = { version = "0.60.0", features = [
-    "Win32_System_LibraryLoader",
-    "Win32_Foundation",
-] }
+ort = { git = "https://github.com/rede97/ort.git", branch = "ryzenai", features = ["load-dynamic"] }
+
+ai-common = { path = "../ai-common" }
+simplelog = "0.12.2"
+log = "0.4.26"
