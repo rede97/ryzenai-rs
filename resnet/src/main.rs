@@ -43,18 +43,6 @@ fn main() -> ort::Result<()> {
     let runtime_path = ai_common::runtime::init_runtime(None);
     info!("ONNX Runtime path: {:?}", runtime_path);
 
-    let (_train_data, _train_labels, test_data, test_labels) = to_ndarray::<f32>(
-        Cifar10::default()
-            // .download_and_extract(true)
-            // .download_url("https://cmoran.xyz/data/cifar/cifar-10-binary.tar.gz")
-            .encode_one_hot(false)
-            .build()
-            .unwrap(),
-    )
-    .expect("Failed to build CIFAR-10 data");
-    let test_data = test_data.mapv(|x| x / 255.0);
-    info!("Load CIFAR-10 data done");
-
     ort::init().with_name("resnet_cifar").commit()?;
 
     let mut providers = Vec::new();
@@ -81,11 +69,27 @@ fn main() -> ort::Result<()> {
         CPUExecutionProvider::default().build(),
     ]);
 
+    let model_path = args.model.to_str().unwrap();
+
     let model = Session::builder()?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
         .with_execution_providers(providers)?
         .with_intra_threads(4)?
-        .commit_from_file("models/resnet_quantized.onnx")?;
+        .commit_from_file(model_path)?;
+
+    info!("Load model: {}", model_path);
+
+    let (_train_data, _train_labels, test_data, test_labels) = to_ndarray::<f32>(
+        Cifar10::default()
+            // .download_and_extract(true)
+            // .download_url("https://cmoran.xyz/data/cifar/cifar-10-binary.tar.gz")
+            .encode_one_hot(false)
+            .build()
+            .unwrap(),
+    )
+    .expect("Failed to build CIFAR-10 data");
+    let test_data = test_data.mapv(|x| x / 255.0);
+    info!("Load CIFAR-10 data done");
 
     let num_test = 1000;
     // let num_test = test_data.len_of(Axis(0));

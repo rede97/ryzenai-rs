@@ -59,40 +59,43 @@ fn main() -> ort::Result<()> {
         .with_intra_threads(4)?
         .commit_from_file("models/mobilenetv2_int.onnx")?;
 
-    // let num_test = 1000;
-    // // let num_test = test_data.len_of(Axis(0));
-    // let mut fail = 0;
+    let test_images = image::ImageIterator::new(&args.val_images);
 
-    // for test_idx in 0..num_test {
-    //     let sub_test_data = test_data.slice(s![test_idx..test_idx + 1, .., .., ..]);
-    //     let sub_test_labels = test_labels.slice(s![test_idx..test_idx + 1, ..]);
 
-    //     let outputs = model.run(inputs!["input" => sub_test_data.view()]?)?;
+    println!("inputs: {:?}", model.inputs);
+    println!("outputs: {:?}", model.outputs);
+    
 
-    //     for (output, label) in outputs[0]
-    //         .try_extract_tensor::<f32>()?
-    //         .into_owned()
-    //         .axis_iter(Axis(0))
-    //         .zip(sub_test_labels.axis_iter(Axis(0)))
-    //     {
-    //         let expect_idx = label[0] as usize;
-    //         let expect_label_name = LABEL_NAME[expect_idx];
-    //         let predix_idx = output
-    //             .iter()
-    //             .enumerate()
-    //             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-    //             .unwrap()
-    //             .0;
-    //         let predicted_label_name = LABEL_NAME[predix_idx];
-    //         if expect_idx != predix_idx {
-    //             error!(
-    //                 "test idx: {}, expect: {}:{}, predict: {}:{}",
-    //                 test_idx, expect_label_name, expect_idx, predicted_label_name, predix_idx
-    //             );
-    //             fail += 1;
-    //         }
-    //     }
-    // }
+    for (test_idx, test_img) in test_images.take(10).enumerate() {
+        // let sub_test_data = test_data.slice(s![test_idx..test_idx + 1, .., .., ..]);
+        // let sub_test_labels = test_labels.slice(s![test_idx..test_idx + 1, ..]);
+
+        // let outputs = model.run(inputs!["input" => sub_test_data.view()]?)?;
+
+        // for (output, label) in outputs[0]
+        //     .try_extract_tensor::<f32>()?
+        //     .into_owned()
+        //     .axis_iter(Axis(0))
+        //     .zip(sub_test_labels.axis_iter(Axis(0)))
+        // {
+        //     let expect_idx = label[0] as usize;
+        //     let expect_label_name = LABEL_NAME[expect_idx];
+        //     let predix_idx = output
+        //         .iter()
+        //         .enumerate()
+        //         .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+        //         .unwrap()
+        //         .0;
+        //     let predicted_label_name = LABEL_NAME[predix_idx];
+        //     if expect_idx != predix_idx {
+        //         error!(
+        //             "test idx: {}, expect: {}:{}, predict: {}:{}",
+        //             test_idx, expect_label_name, expect_idx, predicted_label_name, predix_idx
+        //         );
+        //         fail += 1;
+        //     }
+        // }
+    }
 
     // info!(
     //     "Fail: {}/{} (LOSS: {}%)",

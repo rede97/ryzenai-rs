@@ -2,13 +2,14 @@ use image::{DynamicImage, GenericImageView};
 use ndarray::Array4;
 
 use std::fs;
+use std::path::PathBuf;
 
-struct ImageIterator {
+pub struct ImageIterator {
     entries: fs::ReadDir,
 }
 
 impl ImageIterator {
-    fn new(image_dir: &str) -> Self {
+    pub fn new(image_dir: &PathBuf) -> Self {
         let entries = fs::read_dir(image_dir).expect("Failed to read directory");
         ImageIterator { entries }
     }
