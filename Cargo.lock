@@ -908,19 +908,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mobilenet"
-version = "0.1.0"
-dependencies = [
- "ai-common",
- "clap",
- "image",
- "log",
- "ndarray",
- "ort",
- "simplelog",
-]
-
-[[package]]
 name = "ndarray"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2181,6 +2168,19 @@ dependencies = [
  "quote",
  "syn",
  "synstructure",
+]
+
+[[package]]
+name = "yolov8"
+version = "0.1.0"
+dependencies = [
+ "ai-common",
+ "clap",
+ "image",
+ "log",
+ "ndarray",
+ "ort",
+ "simplelog",
 ]
 
 [[package]]

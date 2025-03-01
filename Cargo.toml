@@ -1,6 +1,3 @@
 [workspace]
-members = [
-    "ai-common", "mobilenet",
-    "resnet",
-]
+members = ["ai-common", "resnet", "yolov8"]
 resolver = "2"
