@@ -1,3 +1,4 @@
+mod args;
 mod image;
 
 use cifar_ten::Cifar10;
@@ -9,18 +10,8 @@ use ort::execution_providers::{
 use ort::inputs;
 use ort::session::{builder::GraphOptimizationLevel, Session};
 
-use image::*;
-
 use clap::Parser;
-
-/// Simple program to greet a person
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// disable NPU
-    #[arg(long)]
-    no_npu: bool,
-}
+use image::*;
 
 const LABEL_NAME: [&'static str; 10] = [
     "airplane",
@@ -47,7 +38,7 @@ fn main() -> ort::Result<()> {
     )])
     .unwrap();
 
-    let args = Args::parse();
+    let args = args::Args::parse();
 
     let runtime_path = ai_common::runtime::init_runtime(None);
     info!("ONNX Runtime path: {:?}", runtime_path);

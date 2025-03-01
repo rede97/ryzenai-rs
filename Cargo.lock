@@ -910,6 +910,15 @@ dependencies = [
 [[package]]
 name = "mobilenet"
 version = "0.1.0"
+dependencies = [
+ "ai-common",
+ "clap",
+ "image",
+ "log",
+ "ndarray",
+ "ort",
+ "simplelog",
+]
 
 [[package]]
 name = "ndarray"
