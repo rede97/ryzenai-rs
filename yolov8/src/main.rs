@@ -1,6 +1,7 @@
 mod args;
 mod image;
 
+use ai_common::measure_time;
 use log::{error, info, warn};
 use ndarray::prelude::*;
 use ort::execution_providers::{
@@ -68,11 +69,17 @@ fn main() -> ort::Result<()> {
     let input_shape = (1, 640, 640, 3);
     let empty_array = Array4::<f32>::zeros(input_shape);
     info!("Created an empty ndarray with shape {:?}", input_shape);
+    let (_, duration) = measure_time!({
+        for i in 0..100 {
+            let _outputs = model.run(inputs![empty_array.view()]?)?;
+            info!("Run inference: {}", i);
+        }
+    });
 
-    for i in 0..100 {
-        let _outputs = model.run(inputs![empty_array.view()]?)?;
-        info!("Run inference: {}", i);
-    }
-
+    info!(
+        "Duration: {:?}, FPS: {}",
+        duration,
+        100.0 / duration.as_secs_f64()
+    );
     Ok(())
 }

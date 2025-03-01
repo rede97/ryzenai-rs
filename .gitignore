@@ -4,3 +4,4 @@ runtime/*.dll
 runtime/*.json
 data/
 cache/
+yolov8m.onnx
