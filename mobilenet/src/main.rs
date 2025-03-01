@@ -1,3 +1,6 @@
+mod args;
+mod image;
+
 use log::{error, info, warn};
 use ndarray::prelude::*;
 use ort::execution_providers::{
@@ -6,31 +9,7 @@ use ort::execution_providers::{
 use ort::inputs;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 
-use image::*;
-
 use clap::Parser;
-
-/// Simple program to greet a person
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// disable NPU
-    #[arg(long)]
-    no_npu: bool,
-}
-
-const LABEL_NAME: [&'static str; 10] = [
-    "airplane",
-    "automobile",
-    "bird",
-    "cat",
-    "deer",
-    "dog",
-    "frog",
-    "horse",
-    "ship",
-    "truck",
-];
 
 fn main() -> ort::Result<()> {
     let log_config = simplelog::ConfigBuilder::new()
@@ -44,7 +23,7 @@ fn main() -> ort::Result<()> {
     )])
     .unwrap();
 
-    let args = Args::parse();
+    let args = args::Args::parse();
 
     let runtime_path = ai_common::runtime::init_runtime(None);
     info!("ONNX Runtime path: {:?}", runtime_path);
