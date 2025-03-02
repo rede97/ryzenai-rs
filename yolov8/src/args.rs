@@ -13,4 +13,7 @@ pub struct Args {
     /// Path to the ONNX model
     #[arg(short, long, default_value = "models/yolov8m.onnx")]
     pub model: PathBuf,
+
+    #[arg(short, long)]
+    pub keep_aspect_ratio: bool,
 }

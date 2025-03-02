@@ -1,20 +1,20 @@
 use image::imageops::FilterType;
-use image::{ImageBuffer, Rgb};
+use image::{DynamicImage, ImageBuffer, Rgb};
 use ndarray::Array4;
 use ndarray::ArrayView3;
 use std::collections::VecDeque;
 use std::fs;
 use std::ops::Mul;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-#[derive(Debug)]
-pub struct ImageSize {
-    pub width: u32,
-    pub height: u32,
+#[derive(Debug, Clone, Copy)]
+pub struct ImageScale {
+    pub w: f32,
+    pub h: f32,
 }
 
 pub struct ImageIterator {
-    paths: VecDeque<String>,
+    paths: VecDeque<PathBuf>,
     keep_aspect_ratio: bool,
 }
 
@@ -25,7 +25,7 @@ impl ImageIterator {
             let entry = entry?;
             if let Some(ext) = entry.path().extension() {
                 if ext == "jpg" || ext == "jpeg" || ext == "png" {
-                    paths.push_back(entry.path().to_string_lossy().into_owned());
+                    paths.push_back(entry.path());
                 }
             }
         }
@@ -37,9 +37,10 @@ impl ImageIterator {
 }
 
 pub struct ProcessedImage {
-    pub path: String,
+    pub path: PathBuf,
+    pub img: DynamicImage,
     pub array: Array4<f32>,
-    pub original_size: ImageSize,
+    pub scale: ImageScale,
 }
 
 impl Iterator for ImageIterator {
@@ -48,48 +49,46 @@ impl Iterator for ImageIterator {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(path) = self.paths.pop_front() {
             let img = image::open(&path).ok()?;
-            let original_size = ImageSize {
-                width: img.width(),
-                height: img.height(),
-            };
+
+            let width = img.width();
+            let height = img.height();
 
             // Skip resizing if image is already 640x640
-            let rgb = if original_size.width == 640 && original_size.height == 640 {
-                img.to_rgb8()
-            } else if self.keep_aspect_ratio && original_size.width != original_size.height {
-                // 计算缩放比例
-                let width_ratio = 640.0 / original_size.width as f32;
-                let height_ratio = 640.0 / original_size.height as f32;
+            let (rgb, scale) = if width == 640 && height == 640 {
+                (img.to_rgb8(), ImageScale { w: 1.0, h: 1.0 })
+            } else if self.keep_aspect_ratio && width != height {
+                let width_ratio = 640.0 / width as f32;
+                let height_ratio = 640.0 / height as f32;
                 let ratio = width_ratio.min(height_ratio);
 
-                // 计算新尺寸
-                let new_width = (original_size.width as f32 * ratio).round() as u32;
-                let new_height = (original_size.height as f32 * ratio).round() as u32;
+                let new_width = (width as f32 * ratio).round() as u32;
+                let new_height = (height as f32 * ratio).round() as u32;
 
-                // 等比例缩放
                 let resized = img.resize(new_width, new_height, FilterType::Triangle);
 
-                // 创建640x640的黑色背景
                 let mut canvas = ImageBuffer::new(640, 640);
                 for pixel in canvas.pixels_mut() {
                     *pixel = Rgb([0, 0, 0]);
                 }
 
-                // 计算居中位置
                 let x_offset = (640 - new_width) / 2;
                 let y_offset = (640 - new_height) / 2;
 
-                // 将缩放后的图像绘制到画布上
                 image::imageops::overlay(
                     &mut canvas,
                     &resized.to_rgb8(),
                     x_offset as i64,
                     y_offset as i64,
                 );
-                canvas
+                (canvas, ImageScale { w: ratio, h: ratio })
             } else {
-                // 直接缩放
-                img.resize_exact(640, 640, FilterType::Triangle).to_rgb8()
+                (
+                    img.resize_exact(640, 640, FilterType::Triangle).to_rgb8(),
+                    ImageScale {
+                        w: 640.0 / img.width() as f32,
+                        h: 640.0 / img.height() as f32,
+                    },
+                )
             };
 
             let mut array = Array4::<f32>::zeros((1, 640, 640, 3));
@@ -103,8 +102,9 @@ impl Iterator for ImageIterator {
             }
             Some(ProcessedImage {
                 path,
+                img,
                 array,
-                original_size,
+                scale,
             })
         } else {
             None
