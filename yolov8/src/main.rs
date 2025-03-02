@@ -1,5 +1,6 @@
 mod args;
 mod image;
+mod post_prcess;
 
 use ai_common::measure_time;
 use log::{error, info, warn};
@@ -8,10 +9,12 @@ use ort::execution_providers::{
     CPUExecutionProvider, DirectMLExecutionProvider, VitisAIExecutionProvider,
 };
 use ort::inputs;
+use ort::session::SessionOutputs;
 use ort::session::{Session, builder::GraphOptimizationLevel};
 
 use clap::Parser;
 use image::*;
+use post_prcess::*;
 
 fn main() -> ort::Result<()> {
     let log_config = simplelog::ConfigBuilder::new()
@@ -66,20 +69,26 @@ fn main() -> ort::Result<()> {
 
     info!("Load model: {}", model_path);
 
-    let input_shape = (1, 640, 640, 3);
-    let empty_array = Array4::<f32>::zeros(input_shape);
-    info!("Created an empty ndarray with shape {:?}", input_shape);
-    let (_, duration) = measure_time!({
-        for i in 0..100 {
-            let _outputs = model.run(inputs![empty_array.view()]?)?;
-            info!("Run inference: {}", i);
+    let images = ImageIterator::new("data", true).unwrap();
+    let (count, duration) = measure_time!({
+        let mut images_count: usize = 0;
+        for (i, image) in images.enumerate() {
+            images_count += 1;
+            info!("Image: {}: {:?}", i, image.path);
+            let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
+            for batch_result in amd_yolov8m_post_prcess(outputs, 1, 0.5, 100, 0.7, 100)? {
+                for box_info in batch_result {
+                    info!("box info: {}", box_info);
+                }
+            }
         }
+        images_count
     });
 
     info!(
-        "Duration: {:?}, FPS: {}",
+        "Duration: {:?}, FPS: {:.2}",
         duration,
-        100.0 / duration.as_secs_f64()
+        count as f64 / duration.as_secs_f64()
     );
     Ok(())
 }
