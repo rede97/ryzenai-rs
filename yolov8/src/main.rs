@@ -96,7 +96,7 @@ fn main() -> ort::Result<()> {
                     );
                     let scaled_box: BoundingBox = result.scale(image.scale);
                     // Draw rectangle and text on the image
-                    let color = Rgb([255, 0, 0]); // Red color for the box
+                    let color = result.color(); // Red color for the box
                     imageproc::drawing::draw_hollow_rect_mut(
                         &mut img,
                         imageproc::rect::Rect::at(scaled_box.x1 as i32, scaled_box.y1 as i32)

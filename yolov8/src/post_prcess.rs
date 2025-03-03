@@ -121,8 +121,6 @@ impl YoloResult {
     }
 
     pub fn scale(&self, scale: ImageScale) -> BoundingBox {
-        println!("scale: {:?}", scale);
-
         let (width_ratio, height_ratio, w_offset, h_offset) = match scale {
             ImageScale::KeepAspectRatio {
                 scale_ratio: s,
