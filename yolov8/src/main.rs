@@ -2,7 +2,6 @@ mod args;
 mod image;
 mod post_prcess;
 
-use ::image::Rgb;
 use ai_common::measure_time;
 use colored::Colorize;
 use log::{info, warn};

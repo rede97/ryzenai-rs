@@ -18,6 +18,13 @@ cd runtime
 init.bat
 ```
 
+* Linux env
+```sh
+cd runtime
+./init.sh
+source env.sh
+```
+
 ### 1. ResNet Demo
 This demo shows how to use the ONNX Runtime to load a ResNet model and run inference on the CIFAR-10 dataset.
 
