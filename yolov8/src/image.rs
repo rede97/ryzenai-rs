@@ -1,5 +1,5 @@
 use image::imageops::FilterType;
-use image::{ ImageBuffer, Rgb};
+use image::{DynamicImage, ImageBuffer, Rgb};
 use ndarray::Array4;
 use ndarray::ArrayView3;
 use std::collections::VecDeque;
@@ -8,9 +8,9 @@ use std::ops::Mul;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy)]
-pub struct ImageScale {
-    pub w: f32,
-    pub h: f32,
+pub enum ImageScale {
+    KeepAspectRatio { scale_ratio: f32, aspect_ratio: f32 },
+    ScaleRatio { wdith_ratio: f32, height_ratio: f32 },
 }
 
 pub struct ImageIterator {
@@ -38,7 +38,7 @@ impl ImageIterator {
 
 pub struct ProcessedImage {
     pub path: PathBuf,
-    pub img: ImageBuffer<Rgb<u8>, Vec<u8>>,
+    pub img: DynamicImage,
     pub array: Array4<f32>,
     pub scale: ImageScale,
 }
@@ -55,14 +55,20 @@ impl Iterator for ImageIterator {
 
             // Skip resizing if image is already 640x640
             let (rgb, scale) = if width == 640 && height == 640 {
-                (img.to_rgb8(), ImageScale { w: 1.0, h: 1.0 })
+                (
+                    img.to_rgb8(),
+                    ImageScale::KeepAspectRatio {
+                        scale_ratio: 1.0,
+                        aspect_ratio: 1.0,
+                    },
+                )
             } else if self.keep_aspect_ratio && width != height {
                 let width_ratio = 640.0 / width as f32;
                 let height_ratio = 640.0 / height as f32;
-                let ratio = width_ratio.min(height_ratio);
+                let scale_ratio = width_ratio.min(height_ratio);
 
-                let new_width = (width as f32 * ratio).round() as u32;
-                let new_height = (height as f32 * ratio).round() as u32;
+                let new_width = (width as f32 * scale_ratio).round() as u32;
+                let new_height = (height as f32 * scale_ratio).round() as u32;
 
                 let resized = img.resize(new_width, new_height, FilterType::Triangle);
 
@@ -80,13 +86,19 @@ impl Iterator for ImageIterator {
                     x_offset as i64,
                     y_offset as i64,
                 );
-                (canvas, ImageScale { w: ratio, h: ratio })
+                (
+                    canvas,
+                    ImageScale::KeepAspectRatio {
+                        scale_ratio,
+                        aspect_ratio: width as f32 / height as f32,
+                    },
+                )
             } else {
                 (
                     img.resize_exact(640, 640, FilterType::Triangle).to_rgb8(),
-                    ImageScale {
-                        w: 640.0 / img.width() as f32,
-                        h: 640.0 / img.height() as f32,
+                    ImageScale::ScaleRatio {
+                        wdith_ratio: 640.0 / img.width() as f32,
+                        height_ratio: 640.0 / img.height() as f32,
                     },
                 )
             };
@@ -102,7 +114,7 @@ impl Iterator for ImageIterator {
             }
             Some(ProcessedImage {
                 path,
-                img: rgb,
+                img,
                 array,
                 scale,
             })

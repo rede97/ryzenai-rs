@@ -86,15 +86,15 @@ fn main() -> ort::Result<()> {
             images_count += 1;
             info!("Image: {}: {:?}", i, image.path);
             let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
-            let mut img = image.img;
+            let mut img = image.img.to_rgb8();
             for batch_results in amd_yolov8m_post_prcess(outputs, 1, 0.5, 100, 0.7, 100)? {
                 for result in batch_results {
                     info!(
-                        "class: {}, score: {}",
+                        "class: {}, score: {:.2}",
                         result.label().cyan().bold(),
                         result.score
                     );
-                    let scaled_box: BoundingBox = *result.bbox;
+                    let scaled_box: BoundingBox = result.scale(image.scale);
                     // Draw rectangle and text on the image
                     let color = Rgb([255, 0, 0]); // Red color for the box
                     imageproc::drawing::draw_hollow_rect_mut(

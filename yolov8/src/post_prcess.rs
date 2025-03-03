@@ -121,10 +121,28 @@ impl YoloResult {
     }
 
     pub fn scale(&self, scale: ImageScale) -> BoundingBox {
-        let x1 = self.bbox.x1 / scale.w as f32;
-        let y1 = self.bbox.y1 / scale.h as f32;
-        let x2 = self.bbox.x2 / scale.w as f32;
-        let y2 = self.bbox.y2 / scale.h as f32;
+        println!("scale: {:?}", scale);
+
+        let (width_ratio, height_ratio, w_offset, h_offset) = match scale {
+            ImageScale::KeepAspectRatio {
+                scale_ratio: s,
+                aspect_ratio: a,
+            } => {
+                if a > 1.0 {
+                    (s, s, 0.0, (640.0 - 640.0 / a) / 2.0)
+                } else {
+                    (s, s, (640.0 - 640.0 * a) / 2.0, 0.0)
+                }
+            }
+            ImageScale::ScaleRatio {
+                wdith_ratio,
+                height_ratio,
+            } => (wdith_ratio, height_ratio, 0.0, 0.0),
+        };
+        let x1 = (self.bbox.x1 - w_offset) / width_ratio;
+        let y1 = (self.bbox.y1 - h_offset) / height_ratio;
+        let x2 = (self.bbox.x2 - w_offset) / width_ratio;
+        let y2 = (self.bbox.y2 - h_offset) / height_ratio;
         BoundingBox { x1, y1, x2, y2 }
     }
 }
