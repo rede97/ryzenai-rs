@@ -1,0 +1,1 @@
+export LD_LIBRARY_PATH="`realpath onnxruntime-linux-x64-1.19.2/lib`:$LD_LIBRARY_PATH"

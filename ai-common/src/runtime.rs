@@ -1,7 +1,5 @@
 use std::path::PathBuf;
 use walkdir::WalkDir;
-use windows::Win32::System::LibraryLoader::SetDllDirectoryA;
-use windows::core::PCSTR;
 
 pub fn init_runtime(p: Option<String>) -> PathBuf {
     let (runtime_install_path, mut runtime_path) = match p {
@@ -18,7 +16,10 @@ pub fn init_runtime(p: Option<String>) -> PathBuf {
         }
     };
     runtime_path.push('\0');
+    #[cfg(target_os = "windows")]
     unsafe {
+        use windows::Win32::System::LibraryLoader::SetDllDirectoryA;
+        use windows::core::PCSTR;
         let path = PCSTR::from_raw(runtime_path.as_ptr());
         if SetDllDirectoryA(path).is_ok() {
             println!("DLL search path set successfully.");
