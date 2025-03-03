@@ -28,9 +28,18 @@ cd resnet
 cargo run
 ```
 
-### 2. MobileNet Demo
+### 2. Yolov8 Demo
 
-Reference: [Ryzen AI Model Quantization and Deployment](https://github.com/amd/RyzenAI-SW/tree/main/tutorial/quark_quantization)
+* Download Model
+```sh
+cd yolov8/model
+python download.py
+```
 
-Calib & Test Data: [Download val_images.tar.gz](https://huggingface.co/datasets/imagenet-1k/tree/main/data)
+* Runing Yolov8
+```sh
+cd yolov8
+cargo run
+```
+
 
