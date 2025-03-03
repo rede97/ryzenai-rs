@@ -1,5 +1,5 @@
 use image::imageops::FilterType;
-use image::{DynamicImage, ImageBuffer, Rgb};
+use image::{ ImageBuffer, Rgb};
 use ndarray::Array4;
 use ndarray::ArrayView3;
 use std::collections::VecDeque;
@@ -38,7 +38,7 @@ impl ImageIterator {
 
 pub struct ProcessedImage {
     pub path: PathBuf,
-    pub img: DynamicImage,
+    pub img: ImageBuffer<Rgb<u8>, Vec<u8>>,
     pub array: Array4<f32>,
     pub scale: ImageScale,
 }
@@ -102,7 +102,7 @@ impl Iterator for ImageIterator {
             }
             Some(ProcessedImage {
                 path,
-                img,
+                img: rgb,
                 array,
                 scale,
             })

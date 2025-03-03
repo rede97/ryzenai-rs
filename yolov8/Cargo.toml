@@ -14,3 +14,4 @@ clap = { version = "4.5", features = ["derive"] }
 raqote = "0.8.5"
 imageproc = "0.25.0"
 ab_glyph = "0.2.29"
+colored = "3.0.0"

@@ -2,18 +2,17 @@ mod args;
 mod image;
 mod post_prcess;
 
-use std::path::{Path, PathBuf};
-
 use ::image::Rgb;
 use ai_common::measure_time;
-use log::{error, info, warn};
-use ndarray::prelude::*;
+use colored::Colorize;
+use log::{info, warn};
 use ort::execution_providers::{
     CPUExecutionProvider, DirectMLExecutionProvider, VitisAIExecutionProvider,
 };
 use ort::inputs;
 use ort::session::SessionOutputs;
 use ort::session::{Session, builder::GraphOptimizationLevel};
+use std::path::PathBuf;
 
 use clap::Parser;
 use image::*;
@@ -80,44 +79,42 @@ fn main() -> ort::Result<()> {
         std::fs::create_dir(&output_path).unwrap();
     }
 
-    let images = ImageIterator::new("data", args.keep_aspect_ratio).unwrap();
+    let images = ImageIterator::new("data", !args.no_keep_aspect_ratio).unwrap();
     let (count, duration) = measure_time!({
         let mut images_count: usize = 0;
         for (i, image) in images.enumerate() {
             images_count += 1;
             info!("Image: {}: {:?}", i, image.path);
             let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
-            let mut img = image.img.to_rgb8();
-            for batch_result in amd_yolov8m_post_prcess(outputs, 1, 0.5, 100, 0.7, 100)? {
-                for box_info in batch_result {
-                    info!("box info: {}", box_info);
-                    let scaled_box = box_info.scale(image.scale);
-                    println!(
-                        "scaled_box: {:?}, {} {}",
-                        scaled_box,
-                        scaled_box.width(),
-                        scaled_box.height()
+            let mut img = image.img;
+            for batch_results in amd_yolov8m_post_prcess(outputs, 1, 0.5, 100, 0.7, 100)? {
+                for result in batch_results {
+                    info!(
+                        "class: {}, score: {}",
+                        result.label().cyan().bold(),
+                        result.score
                     );
+                    let scaled_box: BoundingBox = *result.bbox;
                     // Draw rectangle and text on the image
                     let color = Rgb([255, 0, 0]); // Red color for the box
                     imageproc::drawing::draw_hollow_rect_mut(
                         &mut img,
                         imageproc::rect::Rect::at(scaled_box.x1 as i32, scaled_box.y1 as i32)
-                            .of_size(30, 30),
+                            .of_size(scaled_box.width() as u32, scaled_box.height() as u32),
                         color,
                     );
 
-                    // // Draw label and score
-                    // let text = format!("{}: {:.2}", box_info.label(), box_info.score);
-                    // imageproc::drawing::draw_text_mut(
-                    //     &mut img,
-                    //     color,
-                    //     scaled_box.x1 as i32,
-                    //     (scaled_box.y1 as i32).saturating_sub(20), // Position text above the box
-                    //     ab_glyph::PxScale::from(20.0),
-                    //     &font,
-                    //     &text,
-                    // );
+                    // Draw label and score
+                    let text = format!("{}: {:.2}", result.label(), result.score);
+                    imageproc::drawing::draw_text_mut(
+                        &mut img,
+                        color,
+                        scaled_box.x1 as i32,
+                        (scaled_box.y1 as i32).saturating_sub(20), // Position text above the box
+                        ab_glyph::PxScale::from(20.0),
+                        &font,
+                        &text,
+                    );
 
                     // Save the annotated image
                 }

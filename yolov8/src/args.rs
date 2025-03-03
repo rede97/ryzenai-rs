@@ -15,5 +15,5 @@ pub struct Args {
     pub model: PathBuf,
 
     #[arg(short, long)]
-    pub keep_aspect_ratio: bool,
+    pub no_keep_aspect_ratio: bool,
 }
