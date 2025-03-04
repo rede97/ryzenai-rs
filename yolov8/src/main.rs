@@ -1,6 +1,9 @@
 mod args;
+#[allow(unused)]
+mod camera;
 mod image;
-mod post_prcess;
+mod post_proc;
+mod post_proc_gpu;
 
 use ai_common::measure_time;
 use colored::Colorize;
@@ -15,7 +18,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use image::*;
-use post_prcess::*;
+use post_proc::*;
 
 fn main() -> ort::Result<()> {
     let log_config = simplelog::ConfigBuilder::new()
