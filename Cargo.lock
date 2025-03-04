@@ -4153,6 +4153,7 @@ dependencies = [
  "ort",
  "pollster",
  "raqote",
+ "rayon",
  "simplelog",
  "wgpu",
 ]

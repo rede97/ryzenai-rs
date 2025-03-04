@@ -55,7 +55,7 @@ impl WGpuProc {
             source: wgpu::ShaderSource::Wgsl(include_str!("../asserts/post_proc.wgsl").into()),
         });
 
-        let empty: Vec<u32> = (0..1024).collect();
+        let empty: Vec<f32> = (0..1024).map(|v| (v - 512) as f32 / 1000.0).collect();
 
         let input_data_buffer_0: wgpu::Buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -198,7 +198,7 @@ impl WGpuProc {
         self.device.poll(wgpu::Maintain::Wait);
 
         let data = buffer_slice.get_mapped_range();
-        let result: &[u32] = bytemuck::cast_slice(&data);
+        let result: &[f32] = bytemuck::cast_slice(&data);
         println!("results: {:?}", result);
     }
 }

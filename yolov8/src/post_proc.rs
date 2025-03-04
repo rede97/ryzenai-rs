@@ -2,8 +2,8 @@ use image::Rgb;
 use ndarray::{Array1, ArrayBase, Axis, Ix1, s};
 use ort::session::SessionOutputs;
 use ort::tensor::ArrayExtensions;
+use rayon::prelude::*;
 use std::fmt::Display;
-use std::rc::Rc;
 
 use crate::image::ImageScale;
 
@@ -86,7 +86,7 @@ impl BoundingBox {
 pub struct YoloResult {
     pub class_idx: usize,
     pub score: f32,
-    pub bbox: Rc<BoundingBox>,
+    pub bbox: BoundingBox,
 }
 
 impl Display for YoloResult {
@@ -191,40 +191,44 @@ pub fn amd_yolov8m_post_prcess(
             let stride_w = 640.0 / width as f32;
             let stride_h = 640.0 / height as f32;
 
-            let mut boxes: Vec<YoloResult> = Vec::new();
+            let mut boxes: Vec<YoloResult> = (0..width)
+                .into_par_iter()
+                .map(|w| {
+                    let mut w_boxes = Vec::new();
+                    for h in 0..height {
+                        let pre_output_unit = output
+                            .slice(s![h, w, 0..64])
+                            .to_shape((4, 16))
+                            .unwrap()
+                            .softmax(Axis(1)); // shape: [4, 16]
+                        let distance = pre_output_unit.dot(&distance_conv_kernel); // shape: [4]
+                        let bbox = BoundingBox::new(
+                            distance.to_shape((4,)).unwrap(),
+                            w as f32 + 0.5,
+                            h as f32 + 0.5,
+                            stride_w,
+                            stride_h,
+                        );
 
-            for w in 0..width {
-                for h in 0..height {
-                    let pre_output_unit = output
-                        .slice(s![h, w, 0..64])
-                        .to_shape((4, 16))
-                        .unwrap()
-                        .softmax(Axis(1)); // shape: [4, 16]
-                    let distance = pre_output_unit.dot(&distance_conv_kernel); // shape: [4]
-                    let bbox = Rc::new(BoundingBox::new(
-                        distance.to_shape((4,)).unwrap(),
-                        w as f32 + 0.5,
-                        h as f32 + 0.5,
-                        stride_w,
-                        stride_h,
-                    ));
-                    // println!("distance: {:?} bbox: {:?}", distance.t(), bbox);
-
-                    let scores = output.slice(s![h, w, 64..]);
-                    scores
-                        .iter()
-                        .map(sigmoid)
-                        .enumerate()
-                        .filter(|(_, s)| *s > conf_desigmoid)
-                        .for_each(|(class_idx, score)| {
-                            boxes.push(YoloResult {
-                                class_idx,
-                                score,
-                                bbox: bbox.clone(),
+                        let scores = output.slice(s![h, w, 64..]);
+                        scores
+                            .iter()
+                            .map(sigmoid)
+                            .enumerate()
+                            .filter(|(_, s)| *s > conf_desigmoid)
+                            .for_each(|(class_idx, score)| {
+                                w_boxes.push(YoloResult {
+                                    class_idx,
+                                    score,
+                                    bbox,
+                                });
                             });
-                        });
-                }
-            }
+                    }
+                    w_boxes
+                })
+                .flatten()
+                .collect();
+
             boxes.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
             if boxes.len() > max_boxes {
                 boxes.truncate(max_boxes);
