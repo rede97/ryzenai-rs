@@ -1,17 +1,12 @@
 mod args;
-#[allow(unused)]
-mod camera;
 mod image;
 mod post_proc;
 #[allow(unused)]
 mod post_proc_gpu;
 
-extern crate ffmpeg_next as ffmpeg;
-
 use ai_common::measure_time;
 use anyhow::{Result, anyhow};
 use colored::Colorize;
-use ffmpeg::format::context::Input;
 use log::{info, warn};
 use ort::execution_providers::{
     CPUExecutionProvider, DirectMLExecutionProvider, VitisAIExecutionProvider,
@@ -88,23 +83,7 @@ pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) ->
     Ok(())
 }
 
-fn camera_task(args: &args::Args, model: Session, mut video_input: Input) -> Result<()> {
-    let video_stream = video_input
-        .streams()
-        .best(ffmpeg::media::Type::Video)
-        .expect("No video stream found");
-
-    let video_stream_index = video_stream.index();
-    let context_decoder =
-        ffmpeg::codec::Context::from_parameters(video_stream.parameters()).unwrap();
-    let mut decoder = context_decoder.decoder().video().unwrap();
-    println!(
-        "decoder output format: {:?} {}x{}",
-        decoder.format(),
-        decoder.width(),
-        decoder.height()
-    );
-
+fn camera_task(args: &args::Args, model: Session) -> Result<()> {
     use sdl2::event::Event;
     use sdl2::keyboard::Keycode;
 
@@ -206,37 +185,11 @@ fn main() -> Result<()> {
             return images_task(&args, dir, model).map_err(|e| anyhow!(e));
         }
         args::Command::Camera { list, idx } => {
-            camera::VideoDeviceIter::register_all();
             if *list {
-                let iter = camera::VideoDeviceIter::new()?;
-                for (i, dev) in iter.enumerate() {
-                    println!("Camera [{}]: {}, {}", i, dev.desc, dev.name);
-                }
+                todo!()
             } else {
-                if let Some(dev) = camera::VideoDeviceIter::new()?
-                    .enumerate()
-                    .filter(|(i, _d)| *i == *idx)
-                    .map(|(_i, d)| d)
-                    .next()
-                {
-                    let model = init_model(&args)?;
-                    ffmpeg::init().unwrap();
-
-                    let dshow = ffmpeg::device::input::video()
-                        .filter(|v| v.name() == "dshow")
-                        .next()
-                        .expect("No input device [dshow]");
-
-                    println!("device: {}, path: {}", dev.desc, dev.name);
-                    let ictx = ffmpeg::format::open(&format!("video={}", dev.desc), &dshow)
-                        .expect("Failed to open camera");
-
-                    let video_input = ictx.input();
-
-                    // camera_task(&args, model, video_input)?;
-                } else {
-                    println!("Camera[{}] not found", *idx);
-                }
+                let model = init_model(&args)?;
+                camera_task(&args, model)?;
             }
             Ok(())
         }

@@ -50,11 +50,11 @@ $env:VCPKG_ROOT = "C:\path\to\vcpkg"
 $env:PATH = "$env:VCPKG_ROOT;$env:PATH"
 ```
 
-* Install ffmpeg SDL2
-[安装ffmpeg]
+* Install SDL2
+[安装SDL2]
 ```powershell
-vcpkg install ffmpeg[core,ffmpeg,swresample,swscale,avdevice]:x64-windows
 vcpkg install sdl2
+vcpkg install sdl2-gfx
 ```
 
 * Download clang (for generating Rust with C++ bindings)
