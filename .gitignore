@@ -10,3 +10,4 @@ yolov8m.onnx
 onnxruntime*/
 onnxruntime*.tgz
 clang/
+*.log

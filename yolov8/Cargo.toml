@@ -6,7 +6,9 @@ edition = "2024"
 [dependencies]
 image = "0.25.5"
 ndarray = "0.16.1"
-ort = { git = "https://github.com/rede97/ort.git", branch = "ryzenai", features = ["load-dynamic"] }
+ort = { git = "https://github.com/rede97/ort.git", branch = "ryzenai", features = [
+    "load-dynamic",
+] }
 ai-common = { path = "../ai-common" }
 simplelog = "0.12.2"
 log = "0.4.26"
@@ -20,5 +22,8 @@ anyhow = "1.0.97"
 pollster = "0.4.0"
 bytemuck = "1.22.0"
 rayon = "1.10.0"
-sdl2 = {version = "0.37.0", features = ["gfx"]}
+sdl2 = { path = "../../rust-sdl2", features = ["gfx"] }
 fast_image_resize = "5.1.2"
+
+[build-dependencies]
+vcpkg = "0.2"
