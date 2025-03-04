@@ -162,6 +162,9 @@ mod tests {
 
                 frame_index += 1;
             }
+            if frame_index > 5 {
+                break;
+            }
         }
     }
 }

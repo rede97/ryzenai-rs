@@ -1,18 +1,19 @@
-# RyzenAI with Rust and ONNX Runtime (ORT)
+# RyzenAI with Rust and ONNX Runtime (ORT) Guide
 
 This project demonstrates how to use Rust with the ONNX Runtime (ORT) library to interact with RyzenAI models.
 
-## 项目介绍
+## Project Introduction
 
-本项目展示了如何使用Rust语言结合ONNX Runtime (ORT)库来调用RyzenAI模型。
+### Setting Up the Environment
+[准备运行环境]
 
-### Prepare Runtime Environment
-
-1. Intall NPU Driver and ryzen-ai Environment Library
+1. Install NPU Driver and RyzenAI Environment Library
+[安装NPU驱动和RyzenAI环境库]
 
 [Installation Instructions](https://ryzenai.docs.amd.com/en/latest/inst.html)
 
-2. Copy runtime
+2. Copy and Initialize Runtime Environment
+[复制并初始化运行环境]
 ```sh
 cd runtime
 init.bat
@@ -25,8 +26,9 @@ cd runtime
 source env.sh
 ```
 
-### 1. ResNet Demo
-This demo shows how to use the ONNX Runtime to load a ResNet model and run inference on the CIFAR-10 dataset.
+### 1. ResNet Example
+[ResNet 示例]
+This example demonstrates how to use ONNX Runtime to load a ResNet model and perform inference on the CIFAR-10 dataset.
 
 Reference: [Getting Started Example](https://github.com/amd/RyzenAI-SW/tree/main/tutorial/getting_started_resnet)
 
@@ -35,18 +37,50 @@ cd resnet
 cargo run
 ```
 
-### 2. Yolov8 Demo
+### 2. YOLOv8 Example
+[YOLOv8 示例]
 
-* Download Model
+1. Install VcPkg
+[安装VcPkg]
+
+* Set Up VCPKG_ROOT Environment Variable
+[配置VCPKG_ROOT环境变量]
+```powershell
+$env:VCPKG_ROOT = "C:\path\to\vcpkg"
+$env:PATH = "$env:VCPKG_ROOT;$env:PATH"
+```
+
+* Install ffmpeg
+[安装ffmpeg]
+```powershell
+vcpkg install ffmpeg[core,ffmpeg,swresample,swscale,avdevice]:x64-windows
+```
+
+* Download clang (for generating Rust with C++ bindings)
+[下载clang（用于生成Rust与C++的绑定）]
+```powershell
+cd clang
+curl -o clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.0/clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz
+tar -xvf clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz
+```
+
+* Set Up clang Environment
+[配置clang环境]
+```powershell
+$clangDir = Resolve-Path ".\clang+llvm-19.1.0-x86_64-pc-windows-msvc\bin"
+$env:PATH="$clangDir;$env:PATH"
+```
+
+2. Download Model
+[下载模型]
 ```sh
 cd yolov8/model
 python download.py
 ```
 
-* Runing Yolov8
+3. Run YOLOv8
+[运行YOLOv8]
 ```sh
 cd yolov8
-cargo run
+cargo run --release
 ```
-
-
