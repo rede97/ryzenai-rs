@@ -3,6 +3,7 @@ mod args;
 mod camera;
 mod image;
 mod post_proc;
+#[allow(unused)]
 mod post_proc_gpu;
 
 use ai_common::measure_time;
