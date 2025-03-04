@@ -1,3 +1,4 @@
+use log::{error, trace};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
@@ -22,9 +23,9 @@ pub fn init_runtime(p: Option<String>) -> PathBuf {
         use windows::core::PCSTR;
         let path = PCSTR::from_raw(runtime_path.as_ptr());
         if SetDllDirectoryA(path).is_ok() {
-            println!("DLL search path set successfully.");
+            trace!("DLL search path set successfully.");
         } else {
-            println!("Failed to set DLL search path.");
+            error!("Failed to set DLL search path.");
         }
     }
     return PathBuf::from(runtime_install_path);

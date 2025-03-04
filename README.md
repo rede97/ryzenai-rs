@@ -50,10 +50,11 @@ $env:VCPKG_ROOT = "C:\path\to\vcpkg"
 $env:PATH = "$env:VCPKG_ROOT;$env:PATH"
 ```
 
-* Install ffmpeg
+* Install ffmpeg SDL2
 [安装ffmpeg]
 ```powershell
 vcpkg install ffmpeg[core,ffmpeg,swresample,swscale,avdevice]:x64-windows
+vcpkg install sdl2
 ```
 
 * Download clang (for generating Rust with C++ bindings)
@@ -69,6 +70,7 @@ tar -xvf clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz
 ```powershell
 $clangDir = Resolve-Path ".\clang+llvm-19.1.0-x86_64-pc-windows-msvc\bin"
 $env:PATH="$clangDir;$env:PATH"
+$env:LIBCLANG_PATH=$clangDir
 ```
 
 2. Download Model
