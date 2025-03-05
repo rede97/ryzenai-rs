@@ -1,0 +1,7 @@
+[package]
+name = "sdl3test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+sdl3 = { path = "../../sdl3-rs", features = ["use-vcpkg"] }

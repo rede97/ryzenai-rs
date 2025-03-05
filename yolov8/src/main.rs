@@ -1,8 +1,6 @@
 mod args;
 mod image;
 mod post_proc;
-#[allow(unused)]
-mod post_proc_gpu;
 
 use ai_common::measure_time;
 use anyhow::{Result, anyhow};
@@ -18,15 +16,22 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use image::*;
+#[allow(unused)]
 use post_proc::*;
 
-pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) -> ort::Result<()> {
+pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) -> Result<()> {
     let font =
         ab_glyph::FontRef::try_from_slice(include_bytes!("../asserts/DejaVuSans.ttf")).unwrap();
     let output_path = PathBuf::from("output");
     if !output_path.exists() {
         std::fs::create_dir(&output_path).unwrap();
     }
+
+    let post_proc: Box<dyn AMDYoloV8PostProc> = if args.gpu_post {
+        Box::new(PostProcWGPU::new()?)
+    } else {
+        Box::new(PostProcCPU::new())
+    };
 
     let images = ImageIterator::new(dir, !args.no_keep_aspect_ratio).unwrap();
     let (count, duration) = measure_time!({
@@ -36,12 +41,13 @@ pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) ->
             info!("Image {}: {:?}", i, image.path);
             let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
             let mut img = image.img.to_rgb8();
-            for batch_results in amd_yolov8m_post_prcess(outputs, 1, 0.5, 100, 0.7, 100)? {
+            for batch_results in post_proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100)? {
                 for result in batch_results {
                     info!(
-                        "class: {}, score: {:.2}",
+                        "class: {}, score: {:.2} bbox: {:?}",
                         result.label().cyan().bold(),
-                        result.score
+                        result.score,
+                        result.bbox,
                     );
                     let scaled_box: BoundingBox = result.scale(image.scale);
                     // Draw rectangle and text on the image
@@ -83,7 +89,7 @@ pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) ->
     Ok(())
 }
 
-fn camera_task(args: &args::Args, model: Session) -> Result<()> {
+fn camera_task(_args: &args::Args, _model: Session) -> Result<()> {
     Ok(())
 }
 
@@ -149,7 +155,7 @@ fn main() -> Result<()> {
             let model = init_model(&args)?;
             return images_task(&args, dir, model).map_err(|e| anyhow!(e));
         }
-        args::Command::Camera { list, idx } => {
+        args::Command::Camera { list, idx: _ } => {
             if *list {
                 todo!()
             } else {

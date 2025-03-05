@@ -1,4 +1,3 @@
-use log::{error, trace};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
@@ -19,6 +18,7 @@ pub fn init_runtime(p: Option<String>) -> PathBuf {
     runtime_path.push('\0');
     #[cfg(target_os = "windows")]
     unsafe {
+        use log::{error, trace};
         use windows::Win32::System::LibraryLoader::SetDllDirectoryA;
         use windows::core::PCSTR;
         let path = PCSTR::from_raw(runtime_path.as_ptr());

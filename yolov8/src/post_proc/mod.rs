@@ -1,11 +1,17 @@
+use anyhow::Result;
+use bytemuck::{AnyBitPattern, Zeroable};
 use image::Rgb;
-use ndarray::{Array1, ArrayBase, Axis, Ix1, s};
+use ndarray::{ArrayBase, Ix1};
 use ort::session::SessionOutputs;
-use ort::tensor::ArrayExtensions;
-use rayon::prelude::*;
 use std::fmt::Display;
 
 use crate::image::ImageScale;
+
+mod post_proc_cpu;
+mod post_proc_gpu;
+
+pub use post_proc_cpu::PostProcCPU;
+pub use post_proc_gpu::PostProcWGPU;
 
 #[rustfmt::skip]
 pub const YOLOV8_CLASS_LABELS: [&'static str; 80] = [
@@ -37,12 +43,25 @@ pub const RGB_COLORS: [[u8; 3]; 80] = [
     [204, 146, 108], [108, 107, 249]
 ];
 
-#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Zeroable)]
 pub struct BoundingBox {
     pub x1: f32,
     pub y1: f32,
     pub x2: f32,
     pub y2: f32,
+}
+unsafe impl AnyBitPattern for BoundingBox {}
+
+impl Default for BoundingBox {
+    fn default() -> Self {
+        return Self {
+            x1: 0.0,
+            y1: 0.0,
+            x2: 0.0,
+            y2: 0.0,
+        };
+    }
 }
 
 #[allow(unused)]
@@ -64,11 +83,11 @@ impl BoundingBox {
     }
 
     pub fn width(&self) -> f32 {
-        self.x2 - self.x1
+        (self.x2 - self.x1).round()
     }
 
     pub fn height(&self) -> f32 {
-        self.y2 - self.y1
+        (self.y2 - self.y1).round()
     }
 
     fn intersection(&self, box2: &BoundingBox) -> f32 {
@@ -82,7 +101,7 @@ impl BoundingBox {
     }
 }
 
-#[allow(unused)]
+#[derive(Debug)]
 pub struct YoloResult {
     pub class_idx: usize,
     pub score: f32,
@@ -143,134 +162,40 @@ impl YoloResult {
         let y2 = (self.bbox.y2 - h_offset) / height_ratio;
         BoundingBox { x1, y1, x2, y2 }
     }
+
+    fn apply_nms(
+        result: &mut Vec<YoloResult>,
+        mut boxes: Vec<Option<YoloResult>>,
+        nms_threshold: f32,
+    ) {
+        for i in 0..boxes.len() {
+            if let Some(b) = boxes[i].take() {
+                for j in (i + 1)..boxes.len() {
+                    if let Some(b2) = boxes[j].as_ref() {
+                        let nms = b.iou(b2);
+                        if nms > nms_threshold {
+                            boxes[j].take();
+                        }
+                    }
+                }
+                result.push(b);
+            }
+        }
+    }
 }
 
 fn sigmoid(x: &f32) -> f32 {
     1.0 / (1.0 + (-x).exp())
 }
 
-fn apply_nms(result: &mut Vec<YoloResult>, mut boxes: Vec<Option<YoloResult>>, nms_threshold: f32) {
-    for i in 0..boxes.len() {
-        if let Some(b) = boxes[i].take() {
-            for j in (i + 1)..boxes.len() {
-                if let Some(b2) = boxes[j].as_ref() {
-                    if b.iou(b2) > nms_threshold {
-                        boxes[j].take();
-                    }
-                }
-            }
-            result.push(b);
-        }
-    }
-}
-
-pub fn amd_yolov8m_post_prcess(
-    outputs: SessionOutputs<'_, '_>,
-    batch_size: usize,
-    conf_desigmoid: f32,
-    max_boxes: usize,
-    nms_threshold: f32,
-    max_nms_num: usize,
-) -> ort::Result<Vec<Vec<YoloResult>>> {
-    // outputs shape: [[batch_size, 80, 80, 144] [batch_size, 40, 40, 144] [batch_size, 20, 20, 144]]
-    let distance_conv_kernel_val = Array1::linspace(0.0, 15.0, 16);
-    let distance_conv_kernel = distance_conv_kernel_val.to_shape((16, 1)).unwrap();
-    let mut all_batch_results: Vec<Vec<YoloResult>> = Vec::new();
-    for batch_idx in 0..batch_size {
-        let mut result: Vec<YoloResult> = Vec::new();
-        for (_, output) in &outputs {
-            let output = output.try_extract_tensor::<f32>()?.into_owned();
-            let output = output.slice(s![batch_idx, .., .., ..]);
-            let output_shape = output.shape();
-            let height = output_shape[0];
-            let width = output_shape[1];
-            let channels = output_shape[2];
-            if channels != 144 {
-                continue;
-            }
-            let stride_w = 640.0 / width as f32;
-            let stride_h = 640.0 / height as f32;
-
-            let mut boxes: Vec<YoloResult> = (0..width)
-                .into_par_iter()
-                .map(|w| {
-                    let mut w_boxes = Vec::new();
-                    for h in 0..height {
-                        let pre_output_unit = output
-                            .slice(s![h, w, 0..64])
-                            .to_shape((4, 16))
-                            .unwrap()
-                            .softmax(Axis(1)); // shape: [4, 16]
-                        let distance = pre_output_unit.dot(&distance_conv_kernel); // shape: [4]
-                        let bbox = BoundingBox::new(
-                            distance.to_shape((4,)).unwrap(),
-                            w as f32 + 0.5,
-                            h as f32 + 0.5,
-                            stride_w,
-                            stride_h,
-                        );
-
-                        let scores = output.slice(s![h, w, 64..]);
-                        scores
-                            .iter()
-                            .map(sigmoid)
-                            .enumerate()
-                            .filter(|(_, s)| *s > conf_desigmoid)
-                            .for_each(|(class_idx, score)| {
-                                w_boxes.push(YoloResult {
-                                    class_idx,
-                                    score,
-                                    bbox,
-                                });
-                            });
-                    }
-                    w_boxes
-                })
-                .flatten()
-                .collect();
-
-            boxes.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-            if boxes.len() > max_boxes {
-                boxes.truncate(max_boxes);
-            }
-
-            // println!("boxes num: {:?}", boxes.len());
-            let mut boxes_for_nms: [Vec<Option<YoloResult>>; 80] = [const { Vec::new() }; 80];
-            for box_info in boxes {
-                boxes_for_nms[box_info.class_idx].push(Some(box_info));
-            }
-
-            for boxes in boxes_for_nms {
-                apply_nms(&mut result, boxes, nms_threshold);
-            }
-        }
-        result.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-        if result.len() > max_nms_num {
-            result.truncate(max_nms_num);
-        }
-        all_batch_results.push(result);
-    }
-
-    Ok(all_batch_results)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ndarray::Array1;
-
-    #[test]
-    fn test_parallel_softmax() {
-        let data = Array1::linspace(0.0, 63.0, 64);
-
-        let chunks = data.to_shape((4, 16)).unwrap();
-
-        println!("chunks: {:?}", chunks);
-
-        let results = chunks.softmax(Axis(1));
-
-        for result in results.axis_iter(Axis(0)) {
-            println!("result sum: {:?}", result.sum());
-        }
-    }
+pub trait AMDYoloV8PostProc {
+    fn post_proc(
+        &self,
+        outputs: SessionOutputs<'_, '_>,
+        batch_size: usize,
+        conf_desigmoid: f32,
+        max_boxes: usize,
+        nms_threshold: f32,
+        max_nms_num: usize,
+    ) -> Result<Vec<Vec<YoloResult>>>;
 }
