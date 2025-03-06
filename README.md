@@ -51,11 +51,10 @@ $env:VCPKGRS_DYNAMIC=1
 $env:PATH = "$env:VCPKG_ROOT;$env:PATH"
 ```
 
-* Install SDL2
-[安装SDL2]
+* Install SDL3
+[安装SDL3]
 ```powershell
-vcpkg install sdl2
-vcpkg install sdl2-gfx
+vcpkg install sdl3
 ```
 
 * Download clang (for generating Rust with C++ bindings)
