@@ -60,7 +60,7 @@ impl Default for YoloInCfg {
 
 const MAX_YOLO_SIZE: usize = 80 * 80;
 const SHADER_DRC: &str = include_str!("../../asserts/post_proc.wgsl");
-const SHADER_INPUT_SIZE: u64 = (size_of::<YoloInSlice>() * MAX_YOLO_SIZE) as u64;
+// const SHADER_INPUT_SIZE: u64 = (size_of::<YoloInSlice>() * MAX_YOLO_SIZE) as u64;
 const SHADER_OUTPUT_SIZE: u64 = (size_of::<YoloOutSlice>() * MAX_YOLO_SIZE) as u64;
 
 pub struct PostProcWGPU {
@@ -76,27 +76,24 @@ pub struct PostProcWGPU {
 
 impl PostProcWGPU {
     pub fn new() -> Result<Self> {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
-            ..Default::default()
-        });
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
 
         let adapter = if let Some(adapter) = instance
-            .enumerate_adapters(wgpu::Backends::all())
-            .into_iter()
-            .filter(|adapter| {
-                adapter.get_info().device_type != wgpu::DeviceType::Other
-                    && adapter
-                        .features()
-                        .contains(wgpu::Features::VERTEX_WRITABLE_STORAGE)
-                    && adapter.limits().max_buffer_size > SHADER_INPUT_SIZE
-            })
-            .next()
+            .request_adapter(&wgpu::RequestAdapterOptions::default())
+            .block_on()
         {
             adapter
         } else {
             return Err(anyhow!("Failed to create device"));
         };
+
+        let downlevel_capabilities = adapter.get_downlevel_capabilities();
+        if !downlevel_capabilities
+            .flags
+            .contains(wgpu::DownlevelFlags::COMPUTE_SHADERS)
+        {
+            return Err(anyhow!("Adapter does not support compute shaders"));
+        }
 
         let (device, queue) = adapter
             .request_device(
@@ -343,7 +340,7 @@ impl AMDYoloV8PostProc for PostProcWGPU {
                     })
                     .flatten()
                     .collect();
-            
+
                 drop(data);
                 self.yolo_result.unmap();
 
