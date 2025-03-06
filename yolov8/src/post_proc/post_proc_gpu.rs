@@ -2,14 +2,10 @@ use std::num::NonZeroU64;
 
 use anyhow::{Result, anyhow};
 use bytemuck::{AnyBitPattern, NoUninit, Zeroable};
-use log::{info, warn};
 use ndarray::{ArrayBase, s};
 
 use pollster::FutureExt;
-use rayon::{
-    iter::{IntoParallelIterator, ParallelIterator},
-    slice::ParallelSlice,
-};
+use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 use wgpu::util::DeviceExt;
 
 use crate::post_proc::{self, BoundingBox};

@@ -154,7 +154,7 @@ fn main() -> Result<()> {
     )])
     .unwrap();
 
-    /// setup GPU backend before setup onnx runtime
+    // setup GPU backend before setup onnx runtime(dynamic runtime load)
     let post_proc: Box<dyn AMDYoloV8PostProc> = if args.gpu_post {
         Box::new(PostProcWGPU::new()?)
     } else {

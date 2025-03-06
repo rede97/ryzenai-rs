@@ -46,7 +46,7 @@ cargo run
 * Set Up VCPKG_ROOT Environment Variable
 [配置VCPKG_ROOT环境变量]
 ```powershell
-$env:VCPKG_ROOT = "C:\path\to\vcpkg"
+$env:VCPKG_ROOT = "C:\Users\PC\vcpkg"
 $env:PATH = "$env:VCPKG_ROOT;$env:PATH"
 ```
 
