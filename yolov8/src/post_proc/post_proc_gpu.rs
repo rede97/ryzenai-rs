@@ -2,10 +2,14 @@ use std::num::NonZeroU64;
 
 use anyhow::{Result, anyhow};
 use bytemuck::{AnyBitPattern, NoUninit, Zeroable};
+use log::{info, warn};
 use ndarray::{ArrayBase, s};
 
 use pollster::FutureExt;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::{
+    iter::{IntoParallelIterator, ParallelIterator},
+    slice::ParallelSlice,
+};
 use wgpu::util::DeviceExt;
 
 use crate::post_proc::{self, BoundingBox};
@@ -58,7 +62,7 @@ impl Default for YoloInCfg {
     }
 }
 
-const MAX_YOLO_SIZE: usize = 80 * 80;
+const MAX_YOLO_SIZE: usize = 80 * 80 + 40 * 40 + 20 * 20;
 const SHADER_DRC: &str = include_str!("../../asserts/post_proc.wgsl");
 // const SHADER_INPUT_SIZE: u64 = (size_of::<YoloInSlice>() * MAX_YOLO_SIZE) as u64;
 const SHADER_OUTPUT_SIZE: u64 = (size_of::<YoloOutSlice>() * MAX_YOLO_SIZE) as u64;
@@ -68,7 +72,6 @@ pub struct PostProcWGPU {
     queue: wgpu::Queue,
     pipeline: wgpu::ComputePipeline,
     bind_group: wgpu::BindGroup,
-    yolo_cfg: wgpu::Buffer,
     yolo_in: wgpu::Buffer,
     yolo_out: wgpu::Buffer,
     yolo_result: wgpu::Buffer,
@@ -128,12 +131,6 @@ impl PostProcWGPU {
             mapped_at_creation: false,
         });
 
-        let yolo_cfg: wgpu::Buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Config"),
-            contents: bytemuck::cast_slice(&[YoloInCfg::default()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
         let yolo_result: wgpu::Buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("CPU-Side Download Buffer"),
             size: SHADER_OUTPUT_SIZE,
@@ -168,18 +165,6 @@ impl PostProcWGPU {
                     },
                     count: None,
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStages::COMPUTE,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(
-                            NonZeroU64::new(size_of::<YoloInCfg>() as u64).unwrap(),
-                        ),
-                    },
-                    count: None,
-                },
             ],
         });
 
@@ -210,10 +195,6 @@ impl PostProcWGPU {
                     binding: 1,
                     resource: yolo_out.as_entire_binding(),
                 },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: yolo_cfg.as_entire_binding(),
-                },
             ],
         });
 
@@ -222,34 +203,35 @@ impl PostProcWGPU {
             queue,
             pipeline,
             bind_group,
-            yolo_cfg,
             yolo_in,
             yolo_out,
             yolo_result,
         })
     }
 
-    pub fn compute(
+    pub fn write_data(
         &self,
         ort_output: &ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<[usize; 3]>>,
-        stride_w: f32,
-        stride_h: f32,
     ) -> Result<()> {
-        let output_size = ort_output.shape();
-        let yolo_gpu_cfg = [YoloInCfg {
-            step: (output_size[0] * output_size[1] / 200) as u32,
-            width: output_size[1] as u32,
-            stride_w,
-            stride_h,
-        }];
+        let h = ort_output.shape()[0];
+        let offset: u64 = match h {
+            80 => 0,
+            40 => 80 * 80,
+            20 => 80 * 80 + 40 * 40,
+            _ => {
+                return Err(anyhow!("Unsupport output size: {}x{}", h, h));
+            }
+        } * size_of::<YoloInSlice>() as u64;
         let ort_out_data = ort_output
             .as_slice()
-            .ok_or(anyhow!("Write ndarray to GPU failed"))?;
-        self.queue
-            .write_buffer(&self.yolo_in, 0, bytemuck::cast_slice(ort_out_data));
-        self.queue
-            .write_buffer(&self.yolo_cfg, 0, bytemuck::cast_slice(&yolo_gpu_cfg));
+            .ok_or(anyhow!("Write output {} to GPU failed", h))?;
 
+        self.queue
+            .write_buffer(&self.yolo_in, offset, bytemuck::cast_slice(ort_out_data));
+        Ok(())
+    }
+
+    pub fn compute(&self) -> Result<()> {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -291,78 +273,73 @@ impl AMDYoloV8PostProc for PostProcWGPU {
         // outputs shape: [[batch_size, 80, 80, 144] [batch_size, 40, 40, 144] [batch_size, 20, 20, 144]]
         let mut all_batch_results: Vec<Vec<YoloResult>> = Vec::new();
         for batch_idx in 0..batch_size {
-            let mut result: Vec<YoloResult> = Vec::new();
+            let mut nms_result: Vec<YoloResult> = Vec::new();
             for (_, output) in &outputs {
                 let output = output.try_extract_tensor::<f32>()?.into_owned();
                 let output: ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<[usize; 3]>> =
                     output.slice(s![batch_idx, .., .., ..]);
                 let output_shape = output.shape();
-                let height = output_shape[0];
-                let width = output_shape[1];
                 let channels = output_shape[2];
                 if channels != 144 {
                     continue;
                 }
+                self.write_data(&output)?;
+            }
 
-                let stride_w = 640.0 / width as f32;
-                let stride_h = 640.0 / height as f32;
+            self.compute()?;
+            let buffer_slice = self.yolo_result.slice(..);
+            buffer_slice.map_async(wgpu::MapMode::Read, |_| {});
+            self.device.poll(wgpu::Maintain::Wait);
 
-                self.compute(&output, stride_w, stride_h)?;
-
-                let buffer_slice = self.yolo_result.slice(..);
-                buffer_slice.map_async(wgpu::MapMode::Read, |_| {});
-                self.device.poll(wgpu::Maintain::Wait);
-
-                let data = buffer_slice.get_mapped_range();
-                let gpu_results: &[YoloOutSlice] = bytemuck::cast_slice(&data);
-
-                let mut boxes: Vec<YoloResult> = (0..width)
-                    .into_par_iter()
-                    .map(|w| {
-                        let mut w_boxes = Vec::new();
-                        for h in 0..height {
-                            let slice = gpu_results[h * width + w];
-                            slice
-                                .scores
-                                .iter()
-                                .map(|x| *x)
-                                .enumerate()
-                                .filter(|(_, s)| *s > conf_desigmoid)
-                                .for_each(|(class_idx, score)| {
-                                    w_boxes.push(YoloResult {
-                                        class_idx,
-                                        score,
-                                        bbox: slice.bbox,
-                                    });
+            let data = buffer_slice.get_mapped_range();
+            let gpu_results: &[YoloOutSlice] = bytemuck::cast_slice(&data);
+            let chunk_size = gpu_results.len() / 100;
+            let mut boxes: Vec<YoloResult> = gpu_results
+                .par_chunks(chunk_size)
+                .map(|slices| {
+                    let mut w_boxes = Vec::new();
+                    for slice in slices {
+                        slice
+                            .scores
+                            .iter()
+                            .map(|x| *x)
+                            .enumerate()
+                            .filter(|(_, s)| *s > conf_desigmoid)
+                            .for_each(|(class_idx, score)| {
+                                w_boxes.push(YoloResult {
+                                    class_idx,
+                                    score,
+                                    bbox: slice.bbox,
                                 });
-                        }
-                        w_boxes
-                    })
-                    .flatten()
-                    .collect();
+                            });
+                    }
+                    w_boxes
+                })
+                .flatten()
+                .collect();
 
-                drop(data);
-                self.yolo_result.unmap();
+            drop(data);
+            self.yolo_result.unmap();
 
-                boxes.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-                if boxes.len() > max_boxes {
-                    boxes.truncate(max_boxes);
-                }
-
-                let mut boxes_for_nms: [Vec<Option<YoloResult>>; 80] = [const { Vec::new() }; 80];
-                for box_info in boxes {
-                    boxes_for_nms[box_info.class_idx].push(Some(box_info));
-                }
-
-                for boxes in boxes_for_nms {
-                    YoloResult::apply_nms(&mut result, boxes, nms_threshold);
-                }
+            boxes.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+            if boxes.len() > max_boxes {
+                boxes.truncate(max_boxes);
             }
-            result.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
-            if result.len() > max_nms_num {
-                result.truncate(max_nms_num);
+
+            let mut boxes_for_nms: [Vec<Option<YoloResult>>; 80] = [const { Vec::new() }; 80];
+            for box_info in boxes {
+                boxes_for_nms[box_info.class_idx].push(Some(box_info));
             }
-            all_batch_results.push(result);
+
+            for boxes in boxes_for_nms {
+                YoloResult::apply_nms(&mut nms_result, boxes, nms_threshold);
+            }
+
+            nms_result.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap());
+            if nms_result.len() > max_nms_num {
+                nms_result.truncate(max_nms_num);
+            }
+            all_batch_results.push(nms_result);
         }
 
         Ok(all_batch_results)
