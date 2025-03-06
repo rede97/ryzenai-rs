@@ -345,3 +345,13 @@ impl AMDYoloV8PostProc for PostProcWGPU {
         Ok(all_batch_results)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+
+    fn test_gpu_proc() {
+        let p = super::PostProcWGPU::new().unwrap();
+        p.compute().unwrap();
+    }
+}

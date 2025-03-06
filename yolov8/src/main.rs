@@ -19,19 +19,18 @@ use image::*;
 #[allow(unused)]
 use post_proc::*;
 
-pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) -> Result<()> {
+pub fn images_task<P: AsRef<Path>>(
+    args: &args::Args,
+    dir: P,
+    model: Session,
+    proc: Box<dyn AMDYoloV8PostProc>,
+) -> Result<()> {
     let font =
         ab_glyph::FontRef::try_from_slice(include_bytes!("../asserts/DejaVuSans.ttf")).unwrap();
     let output_path = PathBuf::from("output");
     if !output_path.exists() {
         std::fs::create_dir(&output_path).unwrap();
     }
-
-    let post_proc: Box<dyn AMDYoloV8PostProc> = if args.gpu_post {
-        Box::new(PostProcWGPU::new()?)
-    } else {
-        Box::new(PostProcCPU::new())
-    };
 
     let images = ImageIterator::new(dir, !args.no_keep_aspect_ratio).unwrap();
     let (count, duration) = measure_time!({
@@ -42,7 +41,7 @@ pub fn images_task<P: AsRef<Path>>(args: &args::Args, dir: P, model: Session) ->
             let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
             let mut img = image.img.to_rgb8();
             let (results, duration) = measure_time!({
-                let results = post_proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100)?;
+                let results = proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100)?;
                 results
             });
             info!("post proc time: {}us", duration.as_micros());
@@ -142,6 +141,8 @@ fn init_model(args: &args::Args) -> Result<Session> {
 }
 
 fn main() -> Result<()> {
+    let args = args::Args::parse();
+
     let log_config = simplelog::ConfigBuilder::new()
         .set_time_level(log::LevelFilter::Trace)
         .build();
@@ -153,12 +154,17 @@ fn main() -> Result<()> {
     )])
     .unwrap();
 
-    let args = args::Args::parse();
+    /// setup GPU backend before setup onnx runtime
+    let post_proc: Box<dyn AMDYoloV8PostProc> = if args.gpu_post {
+        Box::new(PostProcWGPU::new()?)
+    } else {
+        Box::new(PostProcCPU::new())
+    };
 
     match &args.command {
         args::Command::Image { dir } => {
             let model = init_model(&args)?;
-            return images_task(&args, dir, model).map_err(|e| anyhow!(e));
+            return images_task(&args, dir, model, post_proc).map_err(|e| anyhow!(e));
         }
         args::Command::Camera { list, idx: _ } => {
             if *list {
