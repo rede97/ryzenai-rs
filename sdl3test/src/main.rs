@@ -44,12 +44,11 @@ pub fn select_camera(select_cam_id: SDL_CameraID, select_fid: usize) -> Result<C
 }
 
 pub fn main() {
+    let sdl_context = sdl3::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+
+    camera::subsystem_init();
     {
-        let sdl_context = sdl3::init().unwrap();
-        let video_subsystem = sdl_context.video().unwrap();
-
-        camera::subsystem_init();
-
         print_list_all_cameras();
         let mut cam = select_camera(3, 9).unwrap();
 
@@ -84,28 +83,28 @@ pub fn main() {
                     _ => {}
                 }
             }
-            if let Some(frame) = cam.acquire_frame() {
-                let surface = frame.surface();
-                if texture.is_none() {
-                    window.set_size(surface.width(), surface.height()).unwrap();
-                    let new_texture: Texture<'_> = tetxure_creator
-                        .create_texture(
-                            surface.pixel_format(),
-                            sdl3::render::TextureAccess::Streaming,
-                            surface.width(),
-                            surface.height(),
-                        )
-                        .unwrap();
-                    texture = Some(new_texture);
-                };
-                if let Some(texture) = texture.as_mut() {
-                    surface.with_lock(|pixels| {
-                        texture
-                            .update(None, pixels, surface.pitch() as usize)
-                            .unwrap();
-                    })
-                }
-            }
+            // if let Some(frame) = cam.acquire_frame() {
+            //     let surface = frame.surface();
+            //     if texture.is_none() {
+            //         window.set_size(surface.width(), surface.height()).unwrap();
+            //         let new_texture: Texture<'_> = tetxure_creator
+            //             .create_texture(
+            //                 surface.pixel_format(),
+            //                 sdl3::render::TextureAccess::Streaming,
+            //                 surface.width(),
+            //                 surface.height(),
+            //             )
+            //             .unwrap();
+            //         texture = Some(new_texture);
+            //     };
+            //     if let Some(texture) = texture.as_mut() {
+            //         surface.with_lock(|pixels| {
+            //             texture
+            //                 .update(None, pixels, surface.pitch() as usize)
+            //                 .unwrap();
+            //         })
+            //     }
+            // }
 
             if let Some(texture) = &texture {
                 canvas.copy(texture, None, None).unwrap();
@@ -114,9 +113,6 @@ pub fn main() {
             canvas.present();
             ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
         }
-
-        camera::subsystem_deinit();
     }
-
-    println!("{}", get_error());
+    camera::subsystem_deinit();
 }
