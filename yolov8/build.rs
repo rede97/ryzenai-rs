@@ -1,7 +1,7 @@
 extern crate vcpkg;
 
 fn main() {
-    #[cfg(target_os = "windows")]
+    #[cfg(target_env = "msvc")]
     {
         let lib = vcpkg::Config::new()
             .target_triplet("x64-windows")

@@ -57,22 +57,6 @@ $env:PATH = "$env:VCPKG_ROOT;$env:PATH"
 vcpkg install sdl3
 ```
 
-* Download clang (for generating Rust with C++ bindings)
-[下载clang（用于生成Rust与C++的绑定）]
-```powershell
-cd clang
-curl -o clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.0/clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz
-tar -xvf clang+llvm-19.1.0-x86_64-pc-windows-msvc.tar.xz
-```
-
-* Set Up clang Environment
-[配置clang环境]
-```powershell
-$clangDir = Resolve-Path ".\clang+llvm-19.1.0-x86_64-pc-windows-msvc\bin"
-$env:PATH="$clangDir;$env:PATH"
-$env:LIBCLANG_PATH=$clangDir
-```
-
 2. Download Model
 [下载模型]
 ```sh

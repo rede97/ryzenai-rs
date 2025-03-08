@@ -1,4 +1,7 @@
 mod args;
+#[allow(unused)]
+mod camera_sdl3;
+mod camera_task;
 mod image;
 mod post_proc;
 
@@ -16,7 +19,6 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use image::*;
-#[allow(unused)]
 use post_proc::*;
 
 pub fn images_task<P: AsRef<Path>>(
@@ -93,19 +95,11 @@ pub fn images_task<P: AsRef<Path>>(
     Ok(())
 }
 
-fn camera_task(_args: &args::Args, _model: Session) -> Result<()> {
-    Ok(())
-}
-
 fn init_model(args: &args::Args) -> Result<Session> {
-    let runtime_path = ai_common::runtime::init_runtime(None);
-    info!("ONNX Runtime path: {:?}", runtime_path);
-
     ort::init().with_name("resnet_cifar").commit()?;
 
     let mut providers = Vec::new();
-    if let Ok(config_file) = ai_common::runtime::find_config_file(runtime_path, "vaip_config.json")
-    {
+    if let Ok(config_file) = ai_common::runtime::find_config_file("vaip_config.json", None) {
         info!("Config file: {:?}", config_file);
         if args.no_npu {
             warn!("NPU is disabled");
@@ -170,10 +164,11 @@ fn main() -> Result<()> {
             if *list {
                 todo!()
             } else {
-                let model = init_model(&args)?;
-                camera_task(&args, model)?;
+                println!("camera");
+                camera_task::camera_task();
             }
-            Ok(())
         }
     }
+
+    Ok(())
 }
