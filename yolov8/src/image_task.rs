@@ -26,13 +26,13 @@ pub fn images_task<P: AsRef<Path>>(
         for (i, image) in images.enumerate() {
             images_count += 1;
             info!("Image {}: {:?}", i, image.path);
-            let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
-            let mut img = image.img.to_rgb8();
             let (results, duration) = measure_time!({
+                let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
                 let results = proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100)?;
                 results
             });
-            info!("post proc time: {}us", duration.as_micros());
+            info!("infra time: {}ms", duration.as_micros() as f32 / 100.0);
+            let mut img = image.img.to_rgb8();
             for batch_results in results {
                 for result in batch_results {
                     info!(

@@ -1,10 +1,8 @@
 use std::{
-    ffi::c_void,
-    fmt::{Display, Formatter},
-    mem::ManuallyDrop,
-    sync::Arc,
+    ffi::c_void, fmt::{Display, Formatter}, mem::ManuallyDrop, sync::Arc
 };
 
+use anyhow::anyhow;
 use sdl3::{get_error, pixels::PixelFormat, surface::Surface};
 use sdl3_sys::{
     camera::{self, SDL_CameraSpec},
@@ -266,4 +264,57 @@ impl<'a> Drop for CameraFrame<'a> {
             camera::SDL_ReleaseCameraFrame(self.camera.raw, self.surface.raw());
         }
     }
+}
+
+pub fn print_list_all_cameras() {
+    sdl3::init().unwrap();
+    {
+        subsystem_init();
+        let cameras_iter = CamerasIdIter::new().unwrap();
+        if cameras_iter.len() == 0 {
+            println!("No camera found!");
+        }
+        for (idx, cam_id) in cameras_iter.enumerate() {
+            println!("id[{}]: {}", idx, cam_id.name());
+            for (fid, fmt) in cam_id.supported_formats().unwrap().enumerate() {
+                println!("  +[{}]: {}", fid, fmt);
+            }
+        }
+        subsystem_deinit();
+    }
+}
+
+fn select_format(
+    cam_id: SDL_CameraID,
+    select_fid: Option<usize>,
+) -> anyhow::Result<(Camera, u32, u32)> {
+    for (fid, fmt) in cam_id.supported_formats().unwrap().enumerate() {
+        if let Some(select_fid) = select_fid {
+            if fid == select_fid {
+                println!("select camera: {}, {}", cam_id.name(), fmt);
+                return Ok((fmt.open_camera()?, fmt.width(), fmt.height()));
+            }
+        } else {
+            return Ok((fmt.open_camera()?, fmt.width(), fmt.height()));
+        }
+    }
+
+    return Err(anyhow!("No camera format found!"));
+}
+
+pub fn select_camera(
+    select_dev_idx: Option<usize>,
+    select_fid: Option<usize>,
+) -> anyhow::Result<(Camera, u32, u32)> {
+    let cameras_iter = CamerasIdIter::new().unwrap();
+    for (idx, cam_id) in cameras_iter.enumerate() {
+        if let Some(select_dev_idx) = select_dev_idx {
+            if idx == select_dev_idx {
+                return select_format(cam_id, select_fid);
+            }
+        } else {
+            return select_format(cam_id, None);
+        }
+    }
+    return Err(anyhow!("No camera found!"));
 }

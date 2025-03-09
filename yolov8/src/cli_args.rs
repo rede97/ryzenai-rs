@@ -20,11 +20,9 @@ pub struct Args {
     #[arg(short, long)]
     pub no_keep_aspect_ratio: bool,
 
-
     /// Use gpu for post processing
     #[arg(short, long)]
     pub gpu_post: bool,
-    
 }
 
 #[derive(Subcommand, Debug)]
@@ -39,10 +37,14 @@ pub enum Command {
     #[command(name = "cam", about = "Camera mode")]
     Camera {
         /// List all camera device
-        #[arg(long, default_value = "false")]
+        #[arg(short, long, default_value = "false")]
         list: bool,
-        /// Camera index
-        #[arg(long, default_value = "0")]
-        idx: usize,
+        /// Camera device index
+        #[arg(short, long)]
+        dev_idx: Option<usize>,
+
+        /// Camera format index
+        #[arg(short, long)]
+        fmt_idx: Option<usize>,
     },
 }

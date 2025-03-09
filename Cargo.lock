@@ -28,6 +28,7 @@ checksum = "512761e0bb2578dd7380c6baaa0f4ce03e84f95e960231d1dec8bf4d7d6e2627"
 name = "ai-common"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "image",
  "log",
  "ndarray",
@@ -601,18 +602,6 @@ dependencies = [
  "rayon-core",
  "smallvec",
  "zune-inflate",
-]
-
-[[package]]
-name = "fast_image_resize"
-version = "5.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b55264ccc579fc127eebf6c6c1841d0c160d79a44c8f6f97047b7bc4a9c0d1a5"
-dependencies = [
- "cfg-if",
- "document-features",
- "num-traits",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3088,7 +3077,6 @@ dependencies = [
  "bytemuck",
  "clap",
  "colored",
- "fast_image_resize",
  "image",
  "imageproc",
  "log",

@@ -3,6 +3,7 @@ mod cli_args;
 mod image_task;
 mod post_proc;
 
+use ai_common::camera_sdl3;
 use anyhow::Result;
 use log::{info, warn};
 use ort::execution_providers::{
@@ -77,11 +78,16 @@ fn main() -> Result<()> {
         cli_args::Command::Image { dir } => {
             image_task::images_task(&args, dir, post_proc)?;
         }
-        cli_args::Command::Camera { list, idx: _ } => {
+        cli_args::Command::Camera {
+            list,
+            dev_idx,
+            fmt_idx,
+        } => {
             if *list {
-                todo!()
+                camera_sdl3::print_list_all_cameras();
+                return Ok(());
             } else {
-                camera_task::camera_task(&args, post_proc)?;
+                camera_task::camera_task(&args, post_proc, *dev_idx, *fmt_idx)?;
             }
         }
     }

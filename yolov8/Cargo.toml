@@ -25,10 +25,8 @@ anyhow = "1.0.97"
 pollster = "0.4.0"
 bytemuck = "1.22.0"
 rayon = "1.10.0"
-fast_image_resize = "5.1.2"
 sdl3 = { version = "0.14.15", features = [] }
 sdl3-sys = { version = "0.4.6", features = ["debug-impls"] }
-vcpkg = "0.2"
 
 [build-dependencies]
 vcpkg = "0.2"

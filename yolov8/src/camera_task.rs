@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use crate::post_proc::{AMDYoloV8PostProc, YoloResult};
 use crate::{cli_args, init_model};
-use ai_common::camera_sdl3::{self, Camera, CameraIdExt, CamerasIdIter};
+use ai_common::camera_sdl3::{self};
 use ai_common::ttf_sdl3::Font;
 use ai_common::{image_utils, measure_time, ttf_sdl3};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use log::info;
 use ndarray::s;
 use ndarray::{ArrayView, Axis};
@@ -15,7 +15,6 @@ use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
 use sdl3::rect::Rect;
 use sdl3::render::{Texture, TextureCreator};
-use sdl3_sys::camera::SDL_CameraID;
 
 struct FontCache<'a> {
     font: Font,
@@ -52,34 +51,6 @@ impl<'a> FontCache<'a> {
     }
 }
 
-pub fn print_list_all_cameras() {
-    let cameras_iter = CamerasIdIter::new().unwrap();
-    if cameras_iter.len() == 0 {
-        println!("No camera found!");
-    }
-    for cam_id in cameras_iter {
-        println!("id[{}]: {}", cam_id, cam_id.name());
-        for (fid, fmt) in cam_id.supported_formats().unwrap().enumerate() {
-            println!("  +[{}]: {}", fid, fmt);
-        }
-    }
-}
-
-pub fn select_camera(select_cam_id: SDL_CameraID, select_fid: usize) -> Result<(Camera, u32, u32)> {
-    let cameras_iter = CamerasIdIter::new().unwrap();
-    for cam_id in cameras_iter {
-        if cam_id == select_cam_id {
-            for (fid, fmt) in cam_id.supported_formats().unwrap().enumerate() {
-                if fid == select_fid {
-                    println!("select camera: {}, {}", cam_id.name(), fmt);
-                    return Ok((fmt.open_camera()?, fmt.width(), fmt.height()));
-                }
-            }
-        }
-    }
-    return Err(anyhow!("No camera found!"));
-}
-
 fn surface_to_ndarray(surface: &sdl3::surface::Surface) -> ndarray::Array4<f32> {
     let width = surface.width() as usize;
     let height = surface.height() as usize;
@@ -95,7 +66,12 @@ fn surface_to_ndarray(surface: &sdl3::surface::Surface) -> ndarray::Array4<f32> 
     })
 }
 
-pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> Result<()> {
+pub fn camera_task(
+    args: &cli_args::Args,
+    proc: Box<dyn AMDYoloV8PostProc>,
+    dev_id: Option<usize>,
+    fmt_id: Option<usize>,
+) -> Result<()> {
     let model = init_model(args)?;
 
     let sdl_context = sdl3::init().unwrap();
@@ -104,8 +80,7 @@ pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> R
     camera_sdl3::subsystem_init();
     ttf_sdl3::ttf_init();
     {
-        print_list_all_cameras();
-        let (mut cam, cam_w, cam_h) = select_camera(3, 8).unwrap();
+        let (mut cam, cam_w, cam_h) = camera_sdl3::select_camera(dev_id, fmt_id).unwrap();
         let min_cam_border = std::cmp::min(cam_h, cam_w);
         let src_rect = Rect::new(
             (cam_w - min_cam_border) as i32 / 2,
@@ -163,27 +138,32 @@ pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> R
                     _ => {}
                 }
             }
-            if let Some(frame) = cam.acquire_frame() {
-                let surface = frame.surface();
-                if cam_raw_texture.is_none() {
-                    let new_texture: Texture<'_> = tetxure_creator
-                        .create_texture(
-                            surface.pixel_format(),
-                            sdl3::render::TextureAccess::Streaming,
-                            surface.width(),
-                            surface.height(),
-                        )
-                        .unwrap();
-                    cam_raw_texture = Some(new_texture);
-                };
-                if let Some(cam_raw_texture) = cam_raw_texture.as_mut() {
-                    surface.with_lock(|pixels| {
-                        cam_raw_texture
-                            .update(None, pixels, surface.pitch() as usize)
+            loop {
+                if let Some(frame) = cam.acquire_frame() {
+                    let surface = frame.surface();
+                    if cam_raw_texture.is_none() {
+                        let new_texture: Texture<'_> = tetxure_creator
+                            .create_texture(
+                                surface.pixel_format(),
+                                sdl3::render::TextureAccess::Streaming,
+                                surface.width(),
+                                surface.height(),
+                            )
                             .unwrap();
-                    });
+                        cam_raw_texture = Some(new_texture);
+                    };
+                    if let Some(cam_raw_texture) = cam_raw_texture.as_mut() {
+                        surface.with_lock(|pixels| {
+                            cam_raw_texture
+                                .update(None, pixels, surface.pitch() as usize)
+                                .unwrap();
+                        });
+                    }
+                } else {
+                    break;
                 }
             }
+
             if let Some(texture) = cam_raw_texture.as_ref() {
                 canvas.copy(&texture, src_rect, None).unwrap();
                 let (results, duration) = measure_time!({
