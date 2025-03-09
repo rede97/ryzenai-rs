@@ -1,11 +1,11 @@
+use ai_common::image_utils::ImageScale;
 use anyhow::Result;
 use bytemuck::{AnyBitPattern, Zeroable};
 use image::Rgb;
 use ndarray::{ArrayBase, Ix1};
 use ort::session::SessionOutputs;
+use sdl3::{pixels::Color, render::FRect};
 use std::fmt::Display;
-
-use crate::image::ImageScale;
 
 mod post_proc_cpu;
 mod post_proc_gpu;
@@ -99,6 +99,15 @@ impl BoundingBox {
         ((self.x2 - self.x1) * (self.y2 - self.y1)) + ((box2.x2 - box2.x1) * (box2.y2 - box2.y1))
             - self.intersection(box2)
     }
+
+    pub fn frect(&self) -> FRect {
+        FRect::new(
+            self.x1.clamp(0.0, 640.0),
+            self.y1.clamp(0.0, 640.0),
+            self.width().clamp(0.0, 640.0),
+            self.height().clamp(0.0, 640.0),
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -129,8 +138,13 @@ impl YoloResult {
         YOLOV8_CLASS_LABELS[self.class_idx]
     }
 
-    pub fn color(&self) -> Rgb<u8> {
+    pub fn img_color(&self) -> Rgb<u8> {
         Rgb(RGB_COLORS[self.class_idx])
+    }
+
+    pub fn sdl_color(&self) -> sdl3::pixels::Color {
+        let color = RGB_COLORS[self.class_idx];
+        Color::RGB(color[0], color[1], color[2])
     }
 
     pub fn iou(&self, box2: &YoloResult) -> f32 {

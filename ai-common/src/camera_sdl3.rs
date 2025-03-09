@@ -1,16 +1,15 @@
 use std::{
     ffi::c_void,
-    fmt::{Display, Formatter, write},
+    fmt::{Display, Formatter},
     mem::ManuallyDrop,
     sync::Arc,
 };
 
-use sdl3::{CameraSubsystem, get_error, pixels::PixelFormat, surface::Surface};
+use sdl3::{get_error, pixels::PixelFormat, surface::Surface};
 use sdl3_sys::{
     camera::{self, SDL_CameraSpec},
     init::{SDL_INIT_CAMERA, SDL_InitSubSystem, SDL_QuitSubSystem},
     stdinc::SDL_free,
-    surface::SDL_Surface,
 };
 
 pub use sdl3_sys::camera::SDL_CameraID;

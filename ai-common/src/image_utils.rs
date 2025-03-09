@@ -126,17 +126,17 @@ impl Iterator for ImageIterator {
 
 #[allow(unused)]
 pub fn save_ndarray_as_png(array: ArrayView3<f32>, path: &str) -> Result<(), image::ImageError> {
-    let (_, height, width) = array.dim();
+    let (height, width, _) = array.dim();
     let mut img = ImageBuffer::new(width as u32, height as u32);
 
     for (x, y, pixel) in img.enumerate_pixels_mut() {
-        let r = (array[[0, y as usize, x as usize]]
+        let r = (array[[y as usize, x as usize, 0]]
             .mul(255.0)
             .clamp(0., 255.)) as u8;
-        let g = (array[[1, y as usize, x as usize]]
+        let g = (array[[y as usize, x as usize, 1]]
             .mul(255.0)
             .clamp(0., 255.)) as u8;
-        let b = (array[[2, y as usize, x as usize]]
+        let b = (array[[y as usize, x as usize, 2]]
             .mul(255.0)
             .clamp(0., 255.)) as u8;
         *pixel = Rgb([r, g, b]);

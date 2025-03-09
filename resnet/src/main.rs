@@ -41,14 +41,10 @@ fn main() -> ort::Result<()> {
 
     let args = args::Args::parse();
 
-    let runtime_path = ai_common::runtime::init_runtime(None);
-    info!("ONNX Runtime path: {:?}", runtime_path);
-
     ort::init().with_name("resnet_cifar").commit()?;
 
     let mut providers = Vec::new();
-    if let Ok(config_file) = ai_common::runtime::find_config_file(runtime_path, "vaip_config.json")
-    {
+    if let Ok(config_file) = ai_common::runtime::find_config_file("vaip_config.json", None) {
         info!("Config file: {:?}", config_file);
         if args.no_npu {
             warn!("NPU is disabled");

@@ -4,7 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+image = "0.25.5"
 log = "0.4.26"
+ndarray = "0.16.1"
+sdl3 = "0.14.15"
+sdl3-sys = { version = "0.4.6", features = ["debug-impls"] }
+sdl3-ttf-sys = "0.1.0"
 walkdir = "2.5.0"
 
 [target.'cfg(windows)'.dependencies]

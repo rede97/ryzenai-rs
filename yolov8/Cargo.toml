@@ -3,6 +3,10 @@ name = "yolov8"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["fps"]
+fps = []
+
 [dependencies]
 image = "0.25.5"
 ndarray = "0.16.1"
@@ -16,14 +20,13 @@ clap = { version = "4.5", features = ["derive"] }
 imageproc = "0.25.0"
 ab_glyph = "0.2.29"
 colored = "3.0.0"
-gpu = "0.2.3"
 wgpu = "24.0.1"
 anyhow = "1.0.97"
 pollster = "0.4.0"
 bytemuck = "1.22.0"
 rayon = "1.10.0"
 fast_image_resize = "5.1.2"
-sdl3 = { version = "0.14.15" }
+sdl3 = { version = "0.14.15", features = [] }
 sdl3-sys = { version = "0.4.6", features = ["debug-impls"] }
 vcpkg = "0.2"
 
