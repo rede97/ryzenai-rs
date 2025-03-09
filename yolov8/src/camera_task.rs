@@ -1,9 +1,12 @@
+use std::time::Duration;
+
 use crate::post_proc::{AMDYoloV8PostProc, YoloResult};
 use crate::{cli_args, init_model};
 use ai_common::camera_sdl3::{self, Camera, CameraIdExt, CamerasIdIter};
 use ai_common::ttf_sdl3::Font;
 use ai_common::{image_utils, measure_time, ttf_sdl3};
 use anyhow::{Result, anyhow};
+use log::info;
 use ndarray::s;
 use ndarray::{ArrayView, Axis};
 use ort::inputs;
@@ -123,6 +126,7 @@ pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> R
             sdl3_sys::render::SDL_SetRenderVSync(canvas.raw(), 1);
         }
 
+        let mut infer_duration = Duration::default();
         let tetxure_creator = canvas.texture_creator();
         let mut font = FontCache::new();
         let mut cam_raw_texture: Option<Texture> = None;
@@ -143,12 +147,17 @@ pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> R
                         ..
                     } => {
                         if let Ok(surface) = canvas.read_pixels(None) {
-                            let arr = surface_to_ndarray(&surface);
+                            let (arr, duration) = measure_time!({ surface_to_ndarray(&surface) });
+                            info!(
+                                "surface_to_ndarray duration: {}ms",
+                                duration.as_micros() as f32 / 1000.0
+                            );
                             image_utils::save_ndarray_as_png(
                                 arr.index_axis(Axis(0), 0).view(),
                                 "print_screen.png",
                             )
                             .unwrap();
+                            info!("save  print_screen.png");
                         }
                     }
                     _ => {}
@@ -177,16 +186,16 @@ pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> R
             }
             if let Some(texture) = cam_raw_texture.as_ref() {
                 canvas.copy(&texture, src_rect, None).unwrap();
-                if let Ok(img) = canvas
-                    .read_pixels(None)
-                    .map(|surface| surface_to_ndarray(&surface))
-                {
-                    let outputs: SessionOutputs<'_, '_> = model.run(inputs![img.view()]?)?;
-                    let (results, _duration) = measure_time!({
-                        let results = proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100)?;
-                        results
-                    });
-
+                let (results, duration) = measure_time!({
+                    canvas.read_pixels(None).map(|surface| {
+                        let img = surface_to_ndarray(&surface);
+                        let outputs: SessionOutputs<'_, '_> =
+                            model.run(inputs![img.view()].unwrap()).unwrap();
+                        proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100).unwrap()
+                    })
+                });
+                infer_duration = duration;
+                if let Ok(results) = results {
                     for batch_results in results {
                         for result in batch_results {
                             let color = result.sdl_color();
@@ -217,7 +226,11 @@ pub fn camera_task(args: &cli_args::Args, proc: Box<dyn AMDYoloV8PostProc>) -> R
                 if elapsed_time.as_secs() >= 1 {
                     let fps = frame_count as f64 / elapsed_time.as_secs_f64();
                     window
-                        .set_title(&format!("Yolov8m FPS: {:.1}", fps))
+                        .set_title(&format!(
+                            "Yolov8m FPS: {:.1} infra: {:.2}ms",
+                            fps,
+                            infer_duration.as_micros() as f32 / 1000.0
+                        ))
                         .unwrap();
                     frame_count = 0;
                     start_time = std::time::Instant::now();
