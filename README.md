@@ -33,6 +33,8 @@ cargo run
 ```
 
 ### 2. YOLOv8 Example
+
+* Running on R9-7940HS NPU: XDNA1
 ![YOLOv8 Demo](doc/yolov8_demo.jpg)
 
 1. Install VcPkg
