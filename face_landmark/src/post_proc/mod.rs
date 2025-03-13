@@ -8,7 +8,6 @@ use sdl3::{pixels::Color, render::FRect};
 use std::fmt::Display;
 
 mod post_proc_cpu;
-mod post_proc_gpu;
 
 pub use post_proc_cpu::PostProcCPU;
 pub use post_proc_gpu::PostProcWGPU;
