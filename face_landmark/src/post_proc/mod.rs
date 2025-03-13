@@ -10,7 +10,6 @@ use std::fmt::Display;
 mod post_proc_cpu;
 
 pub use post_proc_cpu::PostProcCPU;
-pub use post_proc_gpu::PostProcWGPU;
 
 #[rustfmt::skip]
 pub const YOLOV8_CLASS_LABELS: [&'static str; 80] = [
