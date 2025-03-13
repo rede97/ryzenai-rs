@@ -15,7 +15,7 @@ use clap::Parser;
 use post_proc::*;
 
 fn init_model(args: &cli_args::Args) -> Result<Session> {
-    ort::init().with_name("yolov8").commit()?;
+    ort::init().with_name("resnet_cifar").commit()?;
 
     let mut providers = Vec::new();
     if let Ok(config_file) = ai_common::runtime::find_config_file("vaip_config.json", None) {
