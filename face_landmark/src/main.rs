@@ -68,11 +68,7 @@ fn main() -> Result<()> {
     .unwrap();
 
     // setup GPU backend before setup onnx runtime(dynamic runtime load)
-    let post_proc: Box<dyn AMDYoloV8PostProc> = if args.gpu_post {
-        Box::new(PostProcWGPU::new()?)
-    } else {
-        Box::new(PostProcCPU::new())
-    };
+    let post_proc = Box::new(PostProcCPU::new());
 
     match &args.command {
         cli_args::Command::Image { dir } => {

@@ -89,7 +89,7 @@ pub fn images_task<P: AsRef<Path>>(
         std::fs::create_dir(&output_path).unwrap();
     }
 
-    let images = ImageIterator::new(dir, !args.no_keep_aspect_ratio).unwrap();
+    let images = ImageIterator::new(dir).unwrap();
     let (count, duration) = measure_time!({
         let mut images_count: usize = 0;
         for (i, image) in images.enumerate() {

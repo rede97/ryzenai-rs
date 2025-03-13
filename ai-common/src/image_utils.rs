@@ -1,6 +1,4 @@
-use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgb};
-use ndarray::Array4;
 use ndarray::ArrayView3;
 use std::collections::VecDeque;
 use std::fs;
@@ -15,11 +13,10 @@ pub enum ImageScale {
 
 pub struct ImageIterator {
     paths: VecDeque<PathBuf>,
-    keep_aspect_ratio: bool,
 }
 
 impl ImageIterator {
-    pub fn new<P: AsRef<Path>>(dir_path: P, keep_aspect_ratio: bool) -> std::io::Result<Self> {
+    pub fn new<P: AsRef<Path>>(dir_path: P) -> std::io::Result<Self> {
         let mut paths = VecDeque::new();
         for entry in fs::read_dir(dir_path)? {
             let entry = entry?;
@@ -31,7 +28,6 @@ impl ImageIterator {
         }
         Ok(Self {
             paths,
-            keep_aspect_ratio,
         })
     }
 }

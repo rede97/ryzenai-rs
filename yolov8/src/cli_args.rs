@@ -16,10 +16,6 @@ pub struct Args {
     #[arg(short, long, default_value = "models/yolov8m.onnx")]
     pub model: PathBuf,
 
-    /// Keep aspect ratio while sending image into model
-    #[arg(short, long)]
-    pub no_keep_aspect_ratio: bool,
-
     /// Use gpu for post processing
     #[arg(short, long)]
     pub gpu_post: bool,
