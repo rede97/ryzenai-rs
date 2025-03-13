@@ -1,12 +1,81 @@
 use crate::{cli_args, post_proc::*};
-use ai_common::image_utils::ImageIterator;
+use ai_common::image_utils::{ImageIterator, ImageScale};
 use ai_common::measure_time;
 use anyhow::Result;
 use colored::Colorize;
+use image::imageops::FilterType;
+use image::{DynamicImage, ImageBuffer, Rgb};
 use log::info;
+use ndarray::Array4;
 use ort::inputs;
 use ort::session::SessionOutputs;
 use std::path::{Path, PathBuf};
+
+fn image_convert(img: &DynamicImage) -> (ndarray::Array4<f32>, ImageScale) {
+    let width = img.width();
+    let height = img.height();
+
+    // Skip resizing if image is already 640x640
+    let (rgb, scale) = if width == 640 && height == 640 {
+        (
+            img.to_rgb8(),
+            ImageScale::KeepAspectRatio {
+                scale_ratio: 1.0,
+                aspect_ratio: 1.0,
+            },
+        )
+    } else if width != height {
+        let width_ratio = 640.0 / width as f32;
+        let height_ratio = 640.0 / height as f32;
+        let scale_ratio = width_ratio.min(height_ratio);
+
+        let new_width = (width as f32 * scale_ratio).round() as u32;
+        let new_height = (height as f32 * scale_ratio).round() as u32;
+
+        let resized = img.resize(new_width, new_height, FilterType::Triangle);
+
+        let mut canvas = ImageBuffer::new(640, 640);
+        for pixel in canvas.pixels_mut() {
+            *pixel = Rgb([0, 0, 0]);
+        }
+
+        let x_offset = (640 - new_width) / 2;
+        let y_offset = (640 - new_height) / 2;
+
+        image::imageops::overlay(
+            &mut canvas,
+            &resized.to_rgb8(),
+            x_offset as i64,
+            y_offset as i64,
+        );
+        (
+            canvas,
+            ImageScale::KeepAspectRatio {
+                scale_ratio,
+                aspect_ratio: width as f32 / height as f32,
+            },
+        )
+    } else {
+        (
+            img.resize_exact(640, 640, FilterType::Triangle).to_rgb8(),
+            ImageScale::ScaleRatio {
+                wdith_ratio: 640.0 / img.width() as f32,
+                height_ratio: 640.0 / img.height() as f32,
+            },
+        )
+    };
+
+    let mut array = Array4::<f32>::zeros((1, 640, 640, 3));
+    for y in 0..640 {
+        for x in 0..640 {
+            let pixel = rgb.get_pixel(x as u32, y as u32);
+            array[[0, y, x, 0]] = pixel[0] as f32 / 255.0;
+            array[[0, y, x, 1]] = pixel[1] as f32 / 255.0;
+            array[[0, y, x, 2]] = pixel[2] as f32 / 255.0;
+        }
+    }
+    return (array, scale);
+}
 
 pub fn images_task<P: AsRef<Path>>(
     args: &cli_args::Args,
@@ -26,8 +95,9 @@ pub fn images_task<P: AsRef<Path>>(
         for (i, image) in images.enumerate() {
             images_count += 1;
             info!("Image {}: {:?}", i, image.path);
+            let (img_array, img_scale) = image_convert(&image.img);
             let (results, duration) = measure_time!({
-                let outputs: SessionOutputs<'_, '_> = model.run(inputs![image.array.view()]?)?;
+                let outputs: SessionOutputs<'_, '_> = model.run(inputs![img_array.view()]?)?;
                 let results = proc.post_proc(outputs, 1, 0.5, 100, 0.7, 100)?;
                 results
             });
@@ -41,7 +111,7 @@ pub fn images_task<P: AsRef<Path>>(
                         result.score,
                         result.bbox,
                     );
-                    let scaled_box: BoundingBox = result.scale(image.scale);
+                    let scaled_box: BoundingBox = result.scale(img_scale);
                     // Draw rectangle and text on the image
                     let color = result.img_color(); // Red color for the box
                     imageproc::drawing::draw_hollow_rect_mut(
