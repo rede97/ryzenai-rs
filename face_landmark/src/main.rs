@@ -43,7 +43,7 @@ fn init_model(args: &cli_args::Args) -> Result<Session> {
     let model_path = args.model.to_str().unwrap();
 
     let model = Session::builder()?
-        .with_optimization_level(GraphOptimizationLevel::Level3)?
+        .with_optimization_level(GraphOptimizationLevel::Disable)?
         .with_execution_providers(providers)?
         .with_intra_threads(4)?
         .commit_from_file(model_path)?;

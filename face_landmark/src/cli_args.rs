@@ -13,7 +13,7 @@ pub struct Args {
     pub no_npu: bool,
 
     /// Path to the ONNX model
-    #[arg(short, long, default_value = "models/yolov8m.onnx")]
+    #[arg(short, long, default_value = "models/yolov5n-face-reluquantized.onnx")]
     pub model: PathBuf,
 
     /// Keep aspect ratio while sending image into model
@@ -30,7 +30,7 @@ pub enum Command {
     #[command(name = "img", about = "Image mode")]
     Image {
         /// Input image dir path
-        #[arg(short, long, default_value = "./data")]
+        #[arg(short, long, default_value = "../yolov8/data")]
         dir: PathBuf,
     },
 

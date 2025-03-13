@@ -1,5 +1,5 @@
 [package]
-name = "yolov8"
+name = "face_landmark"
 version = "0.1.0"
 edition = "2024"
 

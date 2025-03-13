@@ -605,6 +605,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "face_landmark"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "ai-common",
+ "anyhow",
+ "bytemuck",
+ "clap",
+ "colored",
+ "image",
+ "imageproc",
+ "log",
+ "ndarray",
+ "ort",
+ "pollster",
+ "rayon",
+ "sdl3",
+ "sdl3-sys",
+ "simplelog",
+ "vcpkg",
+ "wgpu",
+]
+
+[[package]]
 name = "fdeflate"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
